@@ -141,23 +141,23 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-#	"all": [
-#		"craft_hr.tasks.all"
-#	],
-#	"daily": [
-#		"craft_hr.tasks.daily"
-#	],
-#	"hourly": [
-#		"craft_hr.tasks.hourly"
-#	],
-#	"weekly": [
-#		"craft_hr.tasks.weekly"
-#	],
-#	"monthly": [
-#		"craft_hr.tasks.monthly"
-#	],
-# }
+scheduler_events = {
+	# "all": [
+	# 	"craft_hr.tasks.all"
+	# ],
+	# "daily": [
+	# 	"craft_hr.tasks.daily"
+	# ],
+	# "hourly": [
+	# 	"craft_hr.tasks.hourly"
+	# ],
+	"weekly": [
+		"craft_hr.tasks.weekly.get_earned_leave"
+	],
+	# "monthly": [
+	# 	"craft_hr.tasks.monthly"
+	# ],
+}
 
 # Testing
 # -------
