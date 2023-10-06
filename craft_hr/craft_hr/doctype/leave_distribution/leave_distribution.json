@@ -1,0 +1,48 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-10-06 12:09:24.074167",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "start",
+  "end",
+  "monthly_allocation"
+ ],
+ "fields": [
+  {
+   "fieldname": "start",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "From Month",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "To Month (Choose 0 Forever)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "monthly_allocation",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Monthly Allocation"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2023-10-06 12:12:51.728588",
+ "modified_by": "Administrator",
+ "module": "Craft HR",
+ "name": "Leave Distribution",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

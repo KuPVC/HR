@@ -7,6 +7,11 @@ app_description = "HR Management System adhering to UAE Labour Law"
 app_email = "info@craftinteractive.ae"
 app_license = "MIT"
 
+fixtures = [
+    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR"}]]},
+    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR"}]]},
+    ]
+
 # Includes in <head>
 # ------------------
 
@@ -125,6 +130,13 @@ app_license = "MIT"
 #		"on_trash": "method"
 #	}
 # }
+
+doc_events = {
+    "Leave Allocation":{
+        "before_save": "craft_hr.events.leave_allocation.before_save",
+        "before_submit": "craft_hr.events.leave_allocation.before_submit",
+    }
+}
 
 # Scheduled Tasks
 # ---------------
