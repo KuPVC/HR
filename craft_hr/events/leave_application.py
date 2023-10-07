@@ -1,7 +1,5 @@
 from craft_hr.events.get_leaves import get_earned_leave
 
 def on_submit(doc, method):
-    print("**************************************")
-    print("Leave Application submitted")
-    print("**************************************")
+    #TODO: condition to check if the leave type is earned leave
     get_earned_leave(doc.employee)

@@ -30,14 +30,12 @@ def get_leaves(date_of_joining, allocation_start_date, leave_distribution_templa
     return leaves
 
 def get_earned_leave(employee=None):
-    print("**********earned_leave*************")
     filters = {
         'docstatus':1,
         'custom_leave_distribution_template':['is','set']
     }
     if employee:
         filters['employee'] = employee
-    print("filters: ", filters)
     for la in frappe.db.get_list('Leave Allocation', filters):
         doc = frappe.get_doc('Leave Allocation', la.name)
         earned_leaves = get_leaves(doc.custom_date_of_joining,frappe.utils.today(), doc.custom_leave_distribution_template)
