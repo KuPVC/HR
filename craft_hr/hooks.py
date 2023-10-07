@@ -69,7 +69,7 @@ fixtures = [
 # ------------
 
 # before_install = "craft_hr.install.before_install"
-# after_install = "craft_hr.install.after_install"
+after_install = "craft_hr.install.after_install"
 
 # Uninstallation
 # ------------
