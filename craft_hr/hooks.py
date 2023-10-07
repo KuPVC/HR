@@ -69,7 +69,7 @@ fixtures = [
 # ------------
 
 # before_install = "craft_hr.install.before_install"
-# after_install = "craft_hr.install.after_install"
+after_install = "craft_hr.install.after_install"
 
 # Uninstallation
 # ------------
@@ -135,6 +135,12 @@ doc_events = {
     "Leave Allocation":{
         "before_save": "craft_hr.events.leave_allocation.before_save",
         "before_submit": "craft_hr.events.leave_allocation.before_submit",
+    },
+    "Leave Application":{
+        "on_submit": "craft_hr.events.leave_application.on_submit"
+    },
+    "Attendance":{
+        "on_cancel": "craft_hr.events.attendance.on_cancel"
     }
 }
 
@@ -152,7 +158,7 @@ scheduler_events = {
 	# 	"craft_hr.tasks.hourly"
 	# ],
 	"weekly": [
-		"craft_hr.tasks.weekly.get_earned_leave"
+		"craft_hr.tasks.weekly.update_leave_allocations"
 	],
 	# "monthly": [
 	# 	"craft_hr.tasks.monthly"
