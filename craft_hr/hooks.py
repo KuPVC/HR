@@ -141,7 +141,10 @@ doc_events = {
     },
     "Attendance":{
         "on_cancel": "craft_hr.events.attendance.on_cancel"
-    }
+    },
+	"Salary Slip": {
+		"before_validate": "craft_hr.events.salary_slip.before_validate"
+	}
 }
 
 # Scheduled Tasks
