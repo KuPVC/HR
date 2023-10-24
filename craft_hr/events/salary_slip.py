@@ -13,3 +13,4 @@ def before_validate(doc, method):
         and date between %s and %s
         """,(doc.employee,doc.start_date,doc.end_date),as_dict=True)[0]
         doc.custom_ot = ot_data.ot
+        doc.custom_holiday_ot = ot_data.hot
