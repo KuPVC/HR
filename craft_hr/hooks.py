@@ -35,6 +35,11 @@ fixtures = [
 
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
+
+doctype_js = {
+    "Leave Allocation":"public/js/leave_allocation.js"
+}
+
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -135,6 +140,7 @@ doc_events = {
     "Leave Allocation":{
         "before_save": "craft_hr.events.leave_allocation.before_save",
         "before_submit": "craft_hr.events.leave_allocation.before_submit",
+        "after_submit": "craft_hr.events.leave_allocation.after_submit",
     },
     "Leave Application":{
         "on_submit": "craft_hr.events.leave_application.on_submit"
