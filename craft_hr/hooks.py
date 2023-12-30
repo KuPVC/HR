@@ -242,3 +242,8 @@ scheduler_events = {
 # auth_hooks = [
 #	"craft_hr.auth.validate"
 # ]
+
+#TODO: Not Working. 2 overrides...
+override_doctype_dashboards = {
+	"Employee": "craft_hr.overrides.dashboard_overrides.get_dashboard_for_employee",
+}
