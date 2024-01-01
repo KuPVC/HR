@@ -1,7 +1,10 @@
 import frappe
+from hrms.hr.doctype.leave_allocation.leave_allocation import get_carry_forwarded_leaves
 
 def get_leaves(date_of_joining, allocation_start_date, leave_distribution_template=None):
     opening_months = round(frappe.utils.date_diff(allocation_start_date, date_of_joining)/365 * 12)
+    if opening_months<0:
+        frappe.throw("Leave Period from date should be after employee joining date")
     month_array = {}
     cumulative_allocation = {}    
     template = frappe.get_doc('Leave Distribution Template',leave_distribution_template)
@@ -19,12 +22,10 @@ def get_leaves(date_of_joining, allocation_start_date, leave_distribution_templa
         allocation = allocation + month_array[i]
         cumulative_allocation[i] = allocation
     cumulative_allocation[0] = month_array[0]
-    
     max_months = max(list(cumulative_allocation.keys()))
     leaves = 0
     if opening_months <= max(list(month_array.keys())):
         leaves = cumulative_allocation[opening_months]
-    
     else:
         leaves = cumulative_allocation[max_months] + cumulative_allocation[0] * (opening_months - max_months)
     return leaves
@@ -32,7 +33,8 @@ def get_leaves(date_of_joining, allocation_start_date, leave_distribution_templa
 def get_earned_leave(employee=None):
     filters = {
         'docstatus':1,
-        'custom_leave_distribution_template':['is','set']
+        'custom_leave_distribution_template':['is','set'],
+        'custom_status':"Ongoing"
     }
     if employee:
         filters['employee'] = employee
@@ -44,3 +46,8 @@ def get_earned_leave(employee=None):
         doc.custom_used_leaves = doc.custom_opening_used_leaves + new_used_leaves
         doc.custom_available_leaves = doc.new_leaves_allocated - new_used_leaves
         doc.save()
+
+@frappe.whitelist()
+def get_carry_forwarded_leave(employee, leave_type, date, carry_forward=None):
+    # return get_carry_forwarded_leaves(employee, leave_type, date, carry_forward)
+    pass
