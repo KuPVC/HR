@@ -8,8 +8,9 @@ app_email = "info@craftinteractive.ae"
 app_license = "MIT"
 
 fixtures = [
-    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR"}]]},
-    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR"}]]},
+    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
+    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
+    {'dt':'Report', 'filters':[['name', 'in', {"Overtime Summary"}]]},
     ]
 
 # Includes in <head>
@@ -146,6 +147,7 @@ doc_events = {
         "on_submit": "craft_hr.events.leave_application.on_submit"
     },
     "Attendance":{
+        "on_submit": "craft_hr.events.attendance.on_submit",
         "on_cancel": "craft_hr.events.attendance.on_cancel"
     },
 	"Salary Slip": {
