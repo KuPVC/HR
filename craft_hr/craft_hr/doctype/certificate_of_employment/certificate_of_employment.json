@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:{employee}-COE-{##}",
  "creation": "2023-12-29 16:19:57.963711",
  "default_view": "List",
  "doctype": "DocType",
@@ -85,10 +86,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2023-12-30 10:11:24.684574",
+ "modified": "2024-01-04 15:03:02.560950",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Certificate of Employment",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
