@@ -65,7 +65,9 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "WL-.#####.-.YY."
+   "options": "WL-.#####.-.YY.",
+   "print_hide": 1,
+   "report_hide": 1
   },
   {
    "fetch_from": "employee.employee_name",
@@ -86,7 +88,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-01-03 14:42:18.988518",
+ "modified": "2024-01-04 12:03:49.854623",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Warning Letter",
