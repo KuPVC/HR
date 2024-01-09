@@ -1,0 +1,147 @@
+{
+ "actions": [],
+ "autoname": "EC-.#####",
+ "creation": "2024-01-09 09:32:05.230748",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "job_applicant",
+  "applicant_name",
+  "column_break_3",
+  "company",
+  "appointment_date",
+  "appointment_letter_template",
+  "body_section",
+  "introduction",
+  "terms",
+  "content",
+  "closing_notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "job_applicant",
+   "fieldtype": "Link",
+   "label": "Job Applicant",
+   "options": "Job Applicant",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "job_applicant.applicant_name",
+   "fieldname": "applicant_name",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "label": "Applicant Name",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "appointment_date",
+   "fieldtype": "Date",
+   "label": "Appointment Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "appointment_letter_template",
+   "fieldtype": "Link",
+   "label": "Appointment Letter Template",
+   "options": "Appointment Letter Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "body_section",
+   "fieldtype": "Section Break",
+   "label": "Body"
+  },
+  {
+   "fetch_from": "appointment_letter_template.introduction",
+   "fetch_if_empty": 1,
+   "fieldname": "introduction",
+   "fieldtype": "Text",
+   "label": "Introduction",
+   "reqd": 1
+  },
+  {
+   "fieldname": "terms",
+   "fieldtype": "Table",
+   "label": "Terms",
+   "options": "Appointment Letter content",
+   "reqd": 1
+  },
+  {
+   "fieldname": "closing_notes",
+   "fieldtype": "Text",
+   "label": "Closing Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Employment Contract",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "content",
+   "fieldtype": "Text",
+   "label": "Content"
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-01-09 09:33:42.780582",
+ "modified_by": "Administrator",
+ "module": "Craft HR",
+ "name": "Employment Contract",
+ "name_case": "Title Case",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "applicant_name, company",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "applicant_name",
+ "track_changes": 1
+}
