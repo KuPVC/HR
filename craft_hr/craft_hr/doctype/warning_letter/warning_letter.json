@@ -1,19 +1,20 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "naming_series:",
+ "autoname": "WL-.#####.-.YY.",
  "creation": "2023-12-29 15:47:45.768496",
  "default_view": "List",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "naming_series",
   "employee",
   "employee_name",
   "column_break_dlzpa",
   "date",
   "designation",
+  "section_break_bblgg",
+  "letter_template",
   "section_break_mdzpn",
   "subject",
   "content",
@@ -62,14 +63,6 @@
    "search_index": 1
   },
   {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "label": "Naming Series",
-   "options": "WL-.#####.-.YY.",
-   "print_hide": 1,
-   "report_hide": 1
-  },
-  {
    "fetch_from": "employee.employee_name",
    "fieldname": "employee_name",
    "fieldtype": "Data",
@@ -83,16 +76,26 @@
    "label": "Designation",
    "options": "Designation",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_bblgg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "letter_template",
+   "fieldtype": "Link",
+   "label": "Letter Template",
+   "options": "Letter Template"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-01-04 12:03:49.854623",
+ "modified": "2024-01-10 09:35:07.345423",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Warning Letter",
- "naming_rule": "By \"Naming Series\" field",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
