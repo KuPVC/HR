@@ -1,8 +1,8 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "NOC-.#####.-.YY.",
- "creation": "2023-12-30 10:10:27.885155",
+ "autoname": "TL-.#####.-.YY.",
+ "creation": "2024-01-10 09:04:45.607902",
  "default_view": "List",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -11,9 +11,9 @@
   "employee",
   "employee_name",
   "column_break_dlzpa",
-  "designation",
   "date",
-  "section_break_im90x",
+  "designation",
+  "section_break_ae4el",
   "letter_template",
   "section_break_mdzpn",
   "subject",
@@ -30,6 +30,13 @@
    "reqd": 1
   },
   {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_dlzpa",
    "fieldtype": "Column Break"
   },
@@ -37,6 +44,14 @@
    "fieldname": "date",
    "fieldtype": "Date",
    "label": "Date"
+  },
+  {
+   "fetch_from": "employee.designation",
+   "fieldname": "designation",
+   "fieldtype": "Link",
+   "label": "Designation",
+   "options": "Designation",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_mdzpn",
@@ -57,28 +72,23 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "NOC",
+   "options": "Termination Letter",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
   },
   {
-   "fetch_from": "employee.employee_name",
-   "fieldname": "employee_name",
-   "fieldtype": "Data",
-   "label": "Employee Name",
-   "read_only": 1
-  },
-  {
-   "fetch_from": "employee.designation",
-   "fieldname": "designation",
+   "fieldname": "amended_from",
    "fieldtype": "Link",
-   "label": "Designation",
-   "options": "Designation",
-   "read_only": 1
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Termination Letter",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   },
   {
-   "fieldname": "section_break_im90x",
+   "fieldname": "section_break_ae4el",
    "fieldtype": "Section Break"
   },
   {
@@ -91,10 +101,10 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-01-10 09:52:01.685908",
+ "modified": "2024-01-10 09:50:59.294441",
  "modified_by": "Administrator",
  "module": "Craft HR",
- "name": "NOC",
+ "name": "Termination Letter",
  "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
@@ -108,7 +118,6 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {
@@ -120,6 +129,7 @@
    "read": 1,
    "report": 1,
    "role": "HR Manager",
+   "select": 1,
    "share": 1,
    "submit": 1,
    "write": 1

@@ -1,7 +1,7 @@
-// Copyright (c) 2023, Craftinteractive and contributors
+// Copyright (c) 2024, Craftinteractive and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Warning Letter', {
+frappe.ui.form.on('Termination Letter', {
 	letter_template: function(frm){
 		if (frm.doc.letter_template){
 			frappe.call({
