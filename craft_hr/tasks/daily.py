@@ -1,4 +1,5 @@
 import frappe
+from craft_hr.events.get_leaves import get_earned_leave
 
 def reset_leave_allocation():
     filters = {
@@ -15,3 +16,6 @@ def reset_leave_allocation():
         new_allocation.new_leaves_allocated = new_allocation.reset_to
         new_allocation.insert(ignore_permissions=True)
         new_allocation.submit()
+
+def update_leave_allocations():
+    get_earned_leave()

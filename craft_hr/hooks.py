@@ -163,14 +163,15 @@ scheduler_events = {
 	# 	"craft_hr.tasks.all"
 	# ],
 	"daily": [
-		"craft_hr.tasks.daily.reset_leave_allocation"
+		"craft_hr.tasks.daily.reset_leave_allocation",
+		"craft_hr.tasks.daily.update_leave_allocations"
 	],
 	# "hourly": [
 	# 	"craft_hr.tasks.hourly"
 	# ],
-	"weekly": [
-		"craft_hr.tasks.weekly.update_leave_allocations"
-	],
+	# "weekly": [
+	# 	"craft_hr.tasks.weekly.update_leave_allocations"
+	# ],
 	# "monthly": [
 	# 	"craft_hr.tasks.monthly"
 	# ],
