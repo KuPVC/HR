@@ -13,6 +13,7 @@ def reset_leave_allocation():
         new_allocation = frappe.copy_doc(allocation)
         new_allocation.from_date = frappe.utils.add_days(new_allocation.to_date, 1)
         new_allocation.to_date = frappe.utils.add_years(new_allocation.to_date, 1)
+        new_allocation.carry_forward = 0
         new_allocation.new_leaves_allocated = new_allocation.reset_to
         new_allocation.insert(ignore_permissions=True)
         new_allocation.submit()
