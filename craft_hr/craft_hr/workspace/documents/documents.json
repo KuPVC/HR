@@ -25,8 +25,36 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Termination Letter",
+   "link_count": 0,
+   "link_to": "Termination Letter",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Employment",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Employment Contract",
+   "link_count": 0,
+   "link_to": "Employment Contract",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Letters/Certificates",
-   "link_count": 3,
+   "link_count": 5,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -36,6 +64,16 @@
    "label": "Certificate Of Employment",
    "link_count": 0,
    "link_to": "Certificate of Employment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Work Experience Certificate",
+   "link_count": 0,
+   "link_to": "Work Experience Certificate",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -69,27 +107,9 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Employment",
-   "link_count": 1,
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Employment Contract",
-   "link_count": 0,
-   "link_to": "Employment Contract",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
   }
  ],
- "modified": "2024-01-10 09:59:02.891477",
+ "modified": "2024-01-15 15:59:51.061667",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Documents",

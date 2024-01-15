@@ -1,8 +1,8 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "TL-.#####.-.YY.",
- "creation": "2024-01-10 09:04:45.607902",
+ "autoname": "EL-.#####.-.YY.",
+ "creation": "2024-01-15 15:54:48.854941",
  "default_view": "List",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -18,6 +18,7 @@
   "section_break_mdzpn",
   "subject",
   "content",
+  "amended_from",
   "amended_from"
  ],
  "fields": [
@@ -54,6 +55,16 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_break_ae4el",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "letter_template",
+   "fieldtype": "Link",
+   "label": "Letter Template",
+   "options": "Letter Template"
+  },
+  {
    "fieldname": "section_break_mdzpn",
    "fieldtype": "Section Break"
   },
@@ -82,29 +93,19 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Termination Letter",
+   "options": "Work Experience Certificate",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
-  },
-  {
-   "fieldname": "section_break_ae4el",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "letter_template",
-   "fieldtype": "Link",
-   "label": "Letter Template",
-   "options": "Letter Template"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-01-15 15:53:44.027729",
+ "modified": "2024-01-15 15:54:48.854941",
  "modified_by": "Administrator",
  "module": "Craft HR",
- "name": "Termination Letter",
+ "name": "Work Experience Certificate",
  "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
