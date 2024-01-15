@@ -196,6 +196,10 @@ scheduler_events = {
 #	"Task": "craft_hr.task.get_dashboard_data"
 # }
 
+override_doctype_dashboards = {
+    "Employee": "craft_hr.overrides.dashboard_overrides.get_dashboard_for_employee"
+}
+
 # exempt linked doctypes from being automatically cancelled
 #
 # auto_cancel_exempted_doctypes = ["Auto Repeat"]

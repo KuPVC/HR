@@ -18,17 +18,19 @@ def get_dashboard_for_employee(data):
 				"items": ["Leave Application", "Leave Allocation", "Leave Policy Assignment"],
 			},
 			{
-				"label": _("Lifecycle Item"),
+				"label": _("Lifecycle"),
 				"items": [
 					"Employee Onboarding",
 					"Employee Transfer",
 					"Employee Promotion",
 					"Employee Grievance",
+					# TODO: Employment Contract is currently linked with job applicant
+					# "Employment Contract"
 				],
 			},
 			{
 				"label": _("Exit"),
-				"items": ["Employee Separation", "Exit Interview", "Full and Final Statement"],
+				"items": ["Employee Separation", "Exit Interview", "Full and Final Statement", "Termination Letter"],
 			},
 			{"label": _("Shift"), "items": ["Shift Request", "Shift Assignment"]},
 			{"label": _("Expense"), "items": ["Expense Claim", "Travel Request", "Employee Advance"]},
@@ -50,5 +52,6 @@ def get_dashboard_for_employee(data):
 				"items": ["Training Event", "Training Result", "Training Feedback", "Employee Skill Map"],
 			},
 			{"label": _("Evaluation"), "items": ["Appraisal"]},
+			{"label": _("Documents"), "items": ["Certificate of Employment","NOC","Work Experience Certificate","Warning Letter"]}
 		],
 	}
