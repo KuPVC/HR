@@ -8,16 +8,15 @@ def before_validate(doc, method):
     get_ot_from_attendance(doc)
 
 def get_ot_from_overtime_sheet(doc):
-    if doc.custom_ot == 0:
-        ot_data = frappe.db.sql("""
-        select sum(ot) ot, sum(hot) hot, sum(food_allowance) food_allowance
-        from `tabOvertime Hours`
-        where docstatus = 1
-        and employee = %s
-        and date between %s and %s
-        """,(doc.employee,doc.start_date,doc.end_date),as_dict=True)[0]
-        doc.custom_ot = ot_data.ot
-        doc.custom_holiday_ot = ot_data.hot
+    ot_data = frappe.db.sql("""
+    select sum(ot) ot, sum(hot) hot, sum(food_allowance) food_allowance
+    from `tabOvertime Hours`
+    where docstatus = 1
+    and employee = %s
+    and date between %s and %s
+    """,(doc.employee,doc.start_date,doc.end_date),as_dict=True)[0]
+    doc.custom_ot = ot_data.ot
+    doc.custom_holiday_ot = ot_data.hot
 
 def get_ot_from_attendance(doc,method=None):
     doc.ot,doc.hot,doc.late_hours = frappe.db.sql("""
