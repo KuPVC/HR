@@ -8,8 +8,9 @@ app_email = "info@craftinteractive.ae"
 app_license = "MIT"
 
 fixtures = [
-    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR"}]]},
-    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR"}]]},
+    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
+    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
+    {'dt':'Report', 'filters':[['name', 'in', {"Overtime Summary"}]]},
     ]
 
 # Includes in <head>
@@ -146,6 +147,7 @@ doc_events = {
         "on_submit": "craft_hr.events.leave_application.on_submit"
     },
     "Attendance":{
+        "on_submit": "craft_hr.events.attendance.on_submit",
         "on_cancel": "craft_hr.events.attendance.on_cancel"
     },
 	"Salary Slip": {
@@ -160,15 +162,16 @@ scheduler_events = {
 	# "all": [
 	# 	"craft_hr.tasks.all"
 	# ],
-	# "daily": [
-	# 	"craft_hr.tasks.daily"
-	# ],
+	"daily": [
+		"craft_hr.tasks.daily.reset_leave_allocation",
+		"craft_hr.tasks.daily.update_leave_allocations"
+	],
 	# "hourly": [
 	# 	"craft_hr.tasks.hourly"
 	# ],
-	"weekly": [
-		"craft_hr.tasks.weekly.update_leave_allocations"
-	],
+	# "weekly": [
+	# 	"craft_hr.tasks.weekly.update_leave_allocations"
+	# ],
 	# "monthly": [
 	# 	"craft_hr.tasks.monthly"
 	# ],
@@ -192,6 +195,10 @@ scheduler_events = {
 # override_doctype_dashboards = {
 #	"Task": "craft_hr.task.get_dashboard_data"
 # }
+
+override_doctype_dashboards = {
+    "Employee": "craft_hr.overrides.dashboard_overrides.get_dashboard_for_employee"
+}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -242,3 +249,8 @@ scheduler_events = {
 # auth_hooks = [
 #	"craft_hr.auth.validate"
 # ]
+
+#TODO: Not Working. 2 overrides...
+override_doctype_dashboards = {
+	"Employee": "craft_hr.overrides.dashboard_overrides.get_dashboard_for_employee",
+}
