@@ -9,6 +9,7 @@
  "engine": "InnoDB",
  "field_order": [
   "title",
+  "leave_allocation_type",
   "maximum_leaves",
   "leave_distribution"
  ],
@@ -29,11 +30,17 @@
    "fieldtype": "Table",
    "label": "Leave Distribution",
    "options": "Leave Distribution"
+  },
+  {
+   "fieldname": "leave_allocation_type",
+   "fieldtype": "Select",
+   "label": "Leave Allocation Type",
+   "options": "Monthly\nAnnually"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-10-06 12:12:37.667526",
+ "modified": "2024-09-22 14:53:02.251542",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Leave Distribution Template",

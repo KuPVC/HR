@@ -9,7 +9,7 @@
  "field_order": [
   "start",
   "end",
-  "monthly_allocation"
+  "value_allocation"
  ],
  "fields": [
   {
@@ -27,7 +27,7 @@
    "reqd": 1
   },
   {
-   "fieldname": "monthly_allocation",
+   "fieldname": "value_allocation",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Monthly Allocation"
