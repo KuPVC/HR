@@ -11,7 +11,8 @@
   "title",
   "leave_allocation_type",
   "maximum_leaves",
-  "leave_distribution"
+  "leave_distribution",
+  "leave_distribution_annual"
  ],
  "fields": [
   {
@@ -26,9 +27,11 @@
    "label": "Maximum Leaves"
   },
   {
+   "depends_on": "eval:doc.leave_allocation_type == 'Monthly'",
    "fieldname": "leave_distribution",
    "fieldtype": "Table",
    "label": "Leave Distribution",
+   "mandatory_depends_on": "eval:doc.leave_allocation_type == 'Monthly'",
    "options": "Leave Distribution"
   },
   {
@@ -36,11 +39,19 @@
    "fieldtype": "Select",
    "label": "Leave Allocation Type",
    "options": "Monthly\nAnnually"
+  },
+  {
+   "default": "30",
+   "depends_on": "doc.leave_allocation_type == 'Annually'",
+   "fieldname": "leave_distribution_annual",
+   "fieldtype": "Float",
+   "label": "Leave Distribution",
+   "mandatory_depends_on": "doc.leave_allocation_type == 'Annually'"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-22 14:53:02.251542",
+ "modified": "2024-09-27 10:17:27.085897",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Leave Distribution Template",

@@ -1,9 +1,11 @@
+import math
 import frappe
 from hrms.hr.doctype.leave_allocation.leave_allocation import get_carry_forwarded_leaves
 
 def get_leaves(date_of_joining, allocation_start_date, leave_distribution_template=None):
     # Calculate the number of months or years since joining
-    opening_years = round(frappe.utils.date_diff(allocation_start_date, date_of_joining) / 365)
+    days_since_joining = frappe.utils.date_diff(allocation_start_date, date_of_joining)
+    opening_years = math.ceil(days_since_joining / 365)  # Always round up for years
     opening_months = round(frappe.utils.date_diff(allocation_start_date, date_of_joining) / 365 * 12)
 
     if opening_years < 0 or opening_months < 0:
@@ -15,30 +17,12 @@ def get_leaves(date_of_joining, allocation_start_date, leave_distribution_templa
 
     # Check if leave allocation is 'Annually' or 'Monthly'
     if template.leave_allocation_type == "Annually":
-        # Annually logic (works with years instead of months)
-        for row in template.leave_distribution:
-            if row.end != 0:  # Limited duration
-                for i in range(row.start, row.end + 1):
-                    month_array[i] = row.value_allocation
-            else:  # Unlimited duration (Forever)
-                month_array[row.start] = row.value_allocation
-                month_array[row.end] = row.value_allocation
-
-        # Calculate cumulative allocation for each year
-        allocation = 0
-        for i in range(1, max(list(month_array.keys())) + 1):
-            allocation += month_array[i]
-            cumulative_allocation[i] = allocation
-
-        cumulative_allocation[0] = month_array[0]  # Annual forever allocation
-        max_years = max(list(cumulative_allocation.keys()))
-
-        # Calculate the leaves for the employee based on the joining date and the current year
-        leaves = 0
-        if opening_years <= max_years:
-            leaves = cumulative_allocation[opening_years]
-        else:
-            leaves = cumulative_allocation[max_years] + cumulative_allocation[0] * (opening_years - max_years)
+        # Use the new leave_distribution_annual field for annual allocation
+        annual_leaves = template.leave_distribution_annual
+        
+        # Calculate leaves based on the rounded-up number of years
+        # This will assign full year's leave even for partial years
+        leaves = annual_leaves * opening_years
 
     else:  # Monthly logic (existing behavior)
         for row in template.leave_distribution:
