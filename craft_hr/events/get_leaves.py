@@ -63,17 +63,32 @@ def get_earned_leave(employee=None):
 
     for la in frappe.db.get_list('Leave Allocation', filters):
         doc = frappe.get_doc('Leave Allocation', la.name)
+        
+        # Calculate earned leaves
         earned_leaves = get_leaves(doc.custom_date_of_joining, frappe.utils.today(), doc.custom_leave_distribution_template)
-        new_used_leaves = frappe.db.count('Attendance', {
-            'employee': doc.employee,
-            'leave_type': doc.leave_type,
-            'docstatus': 1,
-            'attendance_date': ['between', [doc.from_date, doc.to_date]]
-        })
+        
+        # Calculate the new used leaves with half-day (0.5) and full-day (1) status logic
+        new_used_leaves = frappe.db.sql("""
+            SELECT SUM(CASE 
+                        WHEN status = 'Half Day' THEN 0.5
+                        WHEN status = 'On Leave' THEN 1
+                        ELSE 0
+                      END) 
+            FROM `tabAttendance`
+            WHERE employee = %s 
+            AND leave_type = %s 
+            AND docstatus = 1 
+            AND attendance_date BETWEEN %s AND %s
+        """, (doc.employee, doc.leave_type, doc.from_date, doc.to_date))[0][0] or 0
+        
+        # Update the leave allocation document
         doc.new_leaves_allocated = earned_leaves - doc.custom_opening_used_leaves
         doc.custom_used_leaves = doc.custom_opening_used_leaves + new_used_leaves
         doc.custom_available_leaves = doc.new_leaves_allocated - new_used_leaves
+        
+        # Save the updated document
         doc.save()
+
 
 
 @frappe.whitelist()
