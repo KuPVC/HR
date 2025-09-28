@@ -257,3 +257,12 @@ override_doctype_dashboards = {
 override_doctype_dashboards = {
 	"Employee": "craft_hr.overrides.dashboard_overrides.get_dashboard_for_employee",
 }
+
+reports = [
+    {
+        "module": "Craft HR",
+        "title": "SJ Monthly Attendance Sheet",
+        "name": "SJ Monthly Attendance Sheet",
+        "doctype": "Attendance"
+    }
+]
