@@ -1,0 +1,17 @@
+[project]
+name = "craft_hr"
+authors = [
+    { name = "Craftinteractive", email = "info@craftinteractive.ae"}
+]
+description = "HR Management System adhering to UAE Labour Law"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "craft_hr/__init__.py"
