@@ -85,6 +85,7 @@ def get_earned_leave(employee=None):
         # HRMS validate_earned_leave_update() on on_update_after_submit
         frappe.db.set_value('Leave Allocation', doc.name, {
             'new_leaves_allocated': earned_leaves - doc.custom_opening_used_leaves,
+            'total_leaves_allocated': earned_leaves,
             'custom_used_leaves': doc.custom_opening_used_leaves + new_used_leaves,
             'custom_available_leaves': earned_leaves - doc.custom_opening_used_leaves - new_used_leaves
         }, update_modified=False)
