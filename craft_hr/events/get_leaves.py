@@ -1,6 +1,7 @@
 import math
 import frappe
 from hrms.hr.doctype.leave_allocation.leave_allocation import get_carry_forwarded_leaves
+from hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry import create_leave_ledger_entry
 
 def get_leaves(date_of_joining, allocation_start_date, leave_distribution_template=None):
     # Calculate the number of months or years since joining
@@ -89,6 +90,25 @@ def get_earned_leave(employee=None):
             'custom_used_leaves': doc.custom_opening_used_leaves + new_used_leaves,
             'custom_available_leaves': earned_leaves - doc.custom_opening_used_leaves - new_used_leaves
         }, update_modified=False)
+
+        # Delete existing ledger entry for this allocation if any (bypass cancel validation)
+        frappe.db.sql("""
+            DELETE FROM `tabLeave Ledger Entry`
+            WHERE transaction_type = 'Leave Allocation'
+              AND transaction_name = %s
+              AND is_carry_forward = 0
+              AND is_expired = 0
+              AND docstatus = 1
+        """, doc.name)
+
+        # Create new leave ledger entry
+        args = dict(
+            leaves=earned_leaves - doc.custom_opening_used_leaves,
+            from_date=doc.from_date,
+            to_date=doc.to_date,
+            is_carry_forward=0
+        )
+        create_leave_ledger_entry(doc, args, submit=True)
 
 
 
