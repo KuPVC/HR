@@ -81,13 +81,13 @@ def get_earned_leave(employee=None):
             AND attendance_date BETWEEN %s AND %s
         """, (doc.employee, doc.leave_type, doc.from_date, doc.to_date))[0][0] or 0
         
-        # Update the leave allocation document
-        doc.new_leaves_allocated = earned_leaves - doc.custom_opening_used_leaves
-        doc.custom_used_leaves = doc.custom_opening_used_leaves + new_used_leaves
-        doc.custom_available_leaves = doc.new_leaves_allocated - new_used_leaves
-        
-        # Save the updated document
-        doc.save()
+        # Update the leave allocation document using db_set to bypass
+        # HRMS validate_earned_leave_update() on on_update_after_submit
+        frappe.db.set_value('Leave Allocation', doc.name, {
+            'new_leaves_allocated': earned_leaves - doc.custom_opening_used_leaves,
+            'custom_used_leaves': doc.custom_opening_used_leaves + new_used_leaves,
+            'custom_available_leaves': earned_leaves - doc.custom_opening_used_leaves - new_used_leaves
+        }, update_modified=False)
 
 
 
