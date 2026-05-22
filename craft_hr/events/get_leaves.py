@@ -4,13 +4,15 @@ from hrms.hr.doctype.leave_allocation.leave_allocation import get_carry_forwarde
 from hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry import create_leave_ledger_entry
 
 def get_leaves(date_of_joining, allocation_start_date, leave_distribution_template=None):
-    # Calculate the number of months or years since joining
+    if not leave_distribution_template:
+        return 0
+
     days_since_joining = frappe.utils.date_diff(allocation_start_date, date_of_joining)
-    opening_years = math.ceil(days_since_joining / 365)  # Always round up for years
+    opening_years = math.ceil(days_since_joining / 365)
     opening_months = round(frappe.utils.date_diff(allocation_start_date, date_of_joining) / 365 * 12)
 
     if opening_years < 0 or opening_months < 0:
-        frappe.throw("Leave Period from date should be after employee joining date")
+        frappe.throw(_("Leave Period from date should be after employee joining date"))
 
     month_array = {}
     cumulative_allocation = {}    
@@ -62,36 +64,39 @@ def get_earned_leave(employee=None):
     if employee:
         filters['employee'] = employee
 
-    for la in frappe.db.get_list('Leave Allocation', filters):
-        doc = frappe.get_doc('Leave Allocation', la.name)
-        
-        # Calculate earned leaves
-        earned_leaves = get_leaves(doc.custom_date_of_joining, frappe.utils.today(), doc.custom_leave_distribution_template)
-        
-        # Calculate the new used leaves with half-day (0.5) and full-day (1) status logic
+    fields = [
+        "name", "employee", "leave_type", "from_date", "to_date",
+        "custom_date_of_joining", "custom_leave_distribution_template",
+        "custom_opening_used_leaves"
+    ]
+    for la in frappe.db.get_all('Leave Allocation', filters, fields):
+        if not la.custom_leave_distribution_template:
+            continue
+
+        earned_leaves = get_leaves(
+            la.custom_date_of_joining, frappe.utils.today(), la.custom_leave_distribution_template
+        )
+
         new_used_leaves = frappe.db.sql("""
-            SELECT SUM(CASE 
+            SELECT SUM(CASE
                         WHEN status = 'Half Day' THEN 0.5
                         WHEN status = 'On Leave' THEN 1
                         ELSE 0
-                      END) 
+                      END)
             FROM `tabAttendance`
-            WHERE employee = %s 
-            AND leave_type = %s 
-            AND docstatus = 1 
+            WHERE employee = %s
+            AND leave_type = %s
+            AND docstatus = 1
             AND attendance_date BETWEEN %s AND %s
-        """, (doc.employee, doc.leave_type, doc.from_date, doc.to_date))[0][0] or 0
-        
-        # Update the leave allocation document using db_set to bypass
-        # HRMS validate_earned_leave_update() on on_update_after_submit
-        frappe.db.set_value('Leave Allocation', doc.name, {
-            'new_leaves_allocated': earned_leaves - doc.custom_opening_used_leaves,
+        """, (la.employee, la.leave_type, la.from_date, la.to_date))[0][0] or 0
+
+        frappe.db.set_value('Leave Allocation', la.name, {
+            'new_leaves_allocated': earned_leaves - la.custom_opening_used_leaves,
             'total_leaves_allocated': earned_leaves,
-            'custom_used_leaves': doc.custom_opening_used_leaves + new_used_leaves,
-            'custom_available_leaves': earned_leaves - doc.custom_opening_used_leaves - new_used_leaves
+            'custom_used_leaves': la.custom_opening_used_leaves + new_used_leaves,
+            'custom_available_leaves': earned_leaves - la.custom_opening_used_leaves - new_used_leaves
         }, update_modified=False)
 
-        # Delete existing ledger entry for this allocation if any (bypass cancel validation)
         frappe.db.sql("""
             DELETE FROM `tabLeave Ledger Entry`
             WHERE transaction_type = 'Leave Allocation'
@@ -99,20 +104,19 @@ def get_earned_leave(employee=None):
               AND is_carry_forward = 0
               AND is_expired = 0
               AND docstatus = 1
-        """, doc.name)
+        """, la.name)
 
-        # Create new leave ledger entry
         args = dict(
-            leaves=earned_leaves - doc.custom_opening_used_leaves,
-            from_date=doc.from_date,
-            to_date=doc.to_date,
+            leaves=earned_leaves - la.custom_opening_used_leaves,
+            from_date=la.from_date,
+            to_date=la.to_date,
             is_carry_forward=0
         )
+        doc = frappe.get_doc('Leave Allocation', la.name)
         create_leave_ledger_entry(doc, args, submit=True)
 
 
 
 @frappe.whitelist()
-def get_carry_forwarded_leave(employee, leave_type, date, carry_forward=None):
-    # return get_carry_forwarded_leaves(employee, leave_type, date, carry_forward)
-    pass
+def get_carry_forwarded_leave(employee: str, leave_type: str, date: str, carry_forward: float | None = None) -> float:
+    return get_carry_forwarded_leaves(employee, leave_type, date, carry_forward) or 0.0

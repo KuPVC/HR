@@ -1,6 +1,5 @@
 import frappe
 from frappe import _
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 def update_leave_entitlement_on_save(doc, method):
@@ -118,8 +117,8 @@ def get_custom_used_leaves(employee, leave_type):
         
         return 0
         
-    except Exception as e:
-        frappe.logger().error(f"Error fetching custom used leaves: {str(e)}")
+    except Exception:
+        frappe.logger().error("Error fetching custom used leaves", exc_info=True)
         return 0
 
 # Alternative approach using property setter or custom field update

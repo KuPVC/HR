@@ -146,7 +146,6 @@ doc_events = {
     },
     "Leave Application":{
         "on_submit": "craft_hr.events.leave_application.on_submit",
-        "before_save": "craft_hr.events.leave_utils.update_leave_entitlement_on_save",
         "validate": "craft_hr.events.leave_utils.update_leave_entitlement_on_save"
     },
     "Attendance":{
