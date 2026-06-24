@@ -90,11 +90,13 @@ def get_earned_leave(employee=None):
             AND attendance_date BETWEEN %s AND %s
         """, (la.employee, la.leave_type, la.from_date, la.to_date))[0][0] or 0
 
+        net_allocated = earned_leaves - la.custom_opening_used_leaves
         frappe.db.set_value('Leave Allocation', la.name, {
-            'new_leaves_allocated': earned_leaves - la.custom_opening_used_leaves,
+            'new_leaves_allocated': net_allocated,
             'total_leaves_allocated': earned_leaves,
-            'custom_used_leaves': la.custom_opening_used_leaves + new_used_leaves,
-            'custom_available_leaves': earned_leaves - la.custom_opening_used_leaves - new_used_leaves
+            # custom_opening_used_leaves may be negative for transferred-balance employees
+            'custom_used_leaves': max(0, la.custom_opening_used_leaves) + new_used_leaves,
+            'custom_available_leaves': net_allocated - new_used_leaves
         }, update_modified=False)
 
         frappe.db.sql("""
@@ -107,7 +109,7 @@ def get_earned_leave(employee=None):
         """, la.name)
 
         args = dict(
-            leaves=earned_leaves - la.custom_opening_used_leaves,
+            leaves=net_allocated,
             from_date=la.from_date,
             to_date=la.to_date,
             is_carry_forward=0
