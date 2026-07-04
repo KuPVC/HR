@@ -1,4 +1,5 @@
 {
+ "app": "craft_hr",
  "charts": [],
  "content": "[{\"id\":\"xkCc_hdzqH\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Employee Self Service</span>\",\"col\":12}},{\"id\":\"7HVXOIsuz6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Employee\",\"col\":3}},{\"id\":\"vgEwTotxQ5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Leave Application\",\"col\":3}},{\"id\":\"6A0AE70Bjc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Salary Slip\",\"col\":3}},{\"id\":\"aR3mNpTqX1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Attendance Request\",\"col\":3}},{\"id\":\"bS4nQrUvY2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Monthly Attendance Sheet\",\"col\":3}}]",
  "creation": "2024-01-09 12:45:04.359922",
@@ -17,6 +18,7 @@
    "is_query_report": 0,
    "label": "My HR",
    "link_count": 4,
+   "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
   },
@@ -65,6 +67,7 @@
    "is_query_report": 0,
    "label": "Reports",
    "link_count": 1,
+   "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
   },
@@ -79,7 +82,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-04 00:00:00.000000",
+ "modified": "2026-07-04 13:48:32.764307",
  "modified_by": "Administrator",
  "module": "Craft HR",
  "name": "Employee Self Service",
@@ -134,8 +137,10 @@
    "color": "Orange",
    "label": "Monthly Attendance Sheet",
    "link_to": "Monthly Attendance Sheet",
+   "report_ref_doctype": "Attendance",
    "type": "Report"
   }
  ],
- "title": "Employee Self Service"
+ "title": "Employee Self Service",
+ "type": "Workspace"
 }
