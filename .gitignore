@@ -5,3 +5,7 @@
 tags
 craft_hr/docs/current
 node_modules/
+craft_hr/public/node_modules
+craft_hr/public/frontend
+craft_hr/www/ess.html
+.gstack/

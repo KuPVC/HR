@@ -1,0 +1,1 @@
+craft_hr.patches.v1_0.fix_employee_self_service_icon

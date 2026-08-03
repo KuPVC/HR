@@ -7,6 +7,10 @@ app_description = "HR Management System adhering to UAE Labour Law"
 app_email = "info@craftinteractive.ae"
 app_license = "MIT"
 
+# the tile's actual click destination — add_to_apps_screen's own "route" key
+# is not read by frappe.boot.load_desktop_data; app_home is the real hook
+app_home = "/ess"
+
 fixtures = [
     {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
     {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
@@ -14,12 +18,21 @@ fixtures = [
     {'dt':'Report', 'filters':[['name', 'in', {"Overtime Summary"}]]},
     ]
 
+add_to_apps_screen = [
+    {
+        "name": "employee_self_service",
+        "logo": "/assets/craft_hr/images/ess-logo.svg",
+        "title": "Employee Self Service",
+        "route": "/ess",
+    }
+]
+
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/craft_hr/css/craft_hr.css"
-# app_include_js = "/assets/craft_hr/js/craft_hr.js"
+app_include_js = "/assets/craft_hr/js/craft_hr_desk_greeting_v7.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/craft_hr/css/craft_hr.css"
@@ -45,6 +58,14 @@ doctype_js = {
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+
+# Website route rules
+# --------------------
+# routes the "/ess" SPA's client-side vue-router paths to the ess.py www page
+
+website_route_rules = [
+    {"from_route": "/ess/<path:app_path>", "to_route": "ess"},
+]
 
 # Home Pages
 # ----------
@@ -146,6 +167,7 @@ doc_events = {
     },
     "Leave Application":{
         "on_submit": "craft_hr.events.leave_application.on_submit",
+        "on_cancel": "craft_hr.events.leave_application.on_cancel",
         "validate": "craft_hr.events.leave_utils.update_leave_entitlement_on_save"
     },
     "Attendance":{
