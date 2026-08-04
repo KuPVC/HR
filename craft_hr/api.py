@@ -240,3 +240,28 @@ def can_approve_team_requests() -> bool:
         return True
 
     return False
+
+
+@frappe.whitelist()
+def get_my_assets() -> list[dict]:
+    """
+    Company assets currently held by the logged-in employee, sourced from
+    Asset.custodian (kept in sync automatically by Asset Movement on
+    submit/cancel — the authoritative "who has it right now" field, no need
+    to query Asset Movement directly).
+    """
+    from hrms.api import get_current_employee
+
+    employee = get_current_employee()
+
+    return frappe.get_all(
+        "Asset",
+        filters={
+            "custodian": employee,
+            "docstatus": 1,
+            "status": ["not in", ["Scrapped", "Sold", "Cancelled", "Draft"]],
+        },
+        fields=["name", "asset_name", "asset_category", "location", "status"],
+        order_by="asset_name asc",
+        ignore_permissions=True,
+    )

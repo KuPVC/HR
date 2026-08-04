@@ -51,6 +51,29 @@
 					</div>
 				</div>
 
+				<!-- Company Assets -->
+				<div v-if="myAssets.data?.length" class="flex flex-col gap-5 my-4 w-full">
+					<div class="flex flex-col bg-white rounded">
+						<div class="flex flex-row items-center gap-3 p-4 border-b">
+							<FeatherIcon name="box" class="h-5 w-5 text-gray-500" />
+							<div class="text-base font-medium text-gray-800">
+								{{ __("Company Assets") }}
+							</div>
+						</div>
+						<div
+							v-for="asset in myAssets.data"
+							:key="asset.name"
+							class="flex flex-row items-center justify-between p-4 border-b last:border-b-0"
+						>
+							<div class="flex flex-col gap-0.5">
+								<span class="text-sm font-medium text-gray-800">{{ asset.asset_name }}</span>
+								<span class="text-xs text-gray-500">{{ asset.asset_category }}</span>
+							</div>
+							<Badge :label="asset.status" theme="gray" size="sm" />
+						</div>
+					</div>
+				</div>
+
 				<!-- Settings -->
 				<div class="flex flex-col gap-5 my-4 w-full">
 					<div class="flex flex-col bg-white rounded">
@@ -114,11 +137,10 @@
 <script setup>
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue"
 import { useRouter } from "vue-router"
-import { FeatherIcon, createDocumentResource, createResource, Dialog } from "frappe-ui"
+import { Badge, FeatherIcon, createDocumentResource, createResource, Dialog } from "frappe-ui"
 
 import AppShell from "@/components/AppShell.vue"
 import { showErrorAlert } from "@/utils/dialogs"
-import { formatCurrency } from "@/utils/formatters"
 
 import ProfileInfoModal from "@/components/ProfileInfoModal.vue"
 
@@ -170,22 +192,6 @@ const profileLinks = [
 			"preferred_email",
 		],
 	},
-	{
-		icon: "dollar-sign",
-		title: __("Salary Information"),
-		fields: [
-			"ctc",
-			"payroll_cost_center",
-			"pan_number",
-			"provident_fund_account",
-			"salary_mode",
-			"bank_name",
-			"bank_ac_no",
-			"ifsc_code",
-			"micr_code",
-			"iban",
-		],
-	},
 ]
 
 const isInfoModalOpen = ref(false)
@@ -207,15 +213,16 @@ const employeeDoc = createDocumentResource({
 	name: employee.data.name,
 	fields: "*",
 	auto: true,
-	transform: (data) => {
-		data.ctc = formatCurrency(data.ctc, data.salary_currency)
-		return data
-	},
 })
 
 const employeeDocType = createResource({
 	url: "hrms.api.get_doctype_fields",
 	params: { doctype: DOCTYPE },
+	auto: true,
+})
+
+const myAssets = createResource({
+	url: "craft_hr.api.get_my_assets",
 	auto: true,
 })
 

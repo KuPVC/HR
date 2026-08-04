@@ -13,7 +13,7 @@
 
 		<div class="w-full flex flex-col items-center justify-center gap-4 p-4">
 			<div
-				v-for="item in data"
+				v-for="item in visibleData"
 				:key="item.fieldname"
 				class="flex flex-row items-center justify-between w-full"
 			>
@@ -29,6 +29,7 @@
 </template>
 
 <script setup>
+import { computed } from "vue"
 import { FeatherIcon } from "frappe-ui"
 import FormattedField from "@/components/FormattedField.vue"
 
@@ -42,4 +43,8 @@ const props = defineProps({
 		required: true,
 	},
 })
+
+const visibleData = computed(() =>
+	props.data.filter((item) => item.value !== null && item.value !== undefined && item.value !== "")
+)
 </script>
