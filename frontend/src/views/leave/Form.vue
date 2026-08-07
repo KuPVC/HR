@@ -9,6 +9,7 @@
 				:fields="formFields.data"
 				:id="props.id"
 				:showAttachmentView="true"
+				:showCommentsView="true"
 				@validateForm="validateForm"
 			/>
 		</template>

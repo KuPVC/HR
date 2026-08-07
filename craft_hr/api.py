@@ -243,6 +243,34 @@ def can_approve_team_requests() -> bool:
 
 
 @frappe.whitelist()
+def get_comments(reference_doctype: str, reference_name: str) -> list[dict]:
+    """
+    Comments on any document the logged-in user can read - e.g. HR asking for
+    clarification on a submitted Attendance Request/Leave Application. The
+    Comment doctype's own permissions only grant read access to System
+    Manager/Website Manager (see comment.json), so a plain frappe.client
+    list call returns nothing for a regular ESS user even though they can
+    see the same comments in the desk timeline. This checks read access on
+    the referenced document instead and fetches with ignore_permissions,
+    mirroring how frappe.desk.form.load.get_docinfo (the desk timeline's own
+    source) does it.
+    """
+    frappe.get_lazy_doc(reference_doctype, reference_name, check_permission=True)
+
+    return frappe.get_all(
+        "Comment",
+        filters={
+            "reference_doctype": reference_doctype,
+            "reference_name": reference_name,
+            "comment_type": "Comment",
+        },
+        fields=["name", "content", "comment_by", "comment_email", "creation"],
+        order_by="creation asc",
+        ignore_permissions=True,
+    )
+
+
+@frappe.whitelist()
 def get_my_assets() -> list[dict]:
     """
     Company assets currently held by the logged-in employee, sourced from

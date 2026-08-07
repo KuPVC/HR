@@ -130,6 +130,12 @@
 								@handleFileSelect="handleFileSelect"
 								@handleFileDelete="handleFileDelete"
 							/>
+
+							<CommentsView
+								v-if="showCommentsView && index === 0 && props.id"
+								:doctype="props.doctype"
+								:docname="props.id"
+							/>
 						</div>
 					</template>
 				</template>
@@ -168,6 +174,12 @@
 						v-model="fileAttachments"
 						@handleFileSelect="handleFileSelect"
 						@handleFileDelete="handleFileDelete"
+					/>
+
+					<CommentsView
+						v-if="showCommentsView && props.id"
+						:doctype="props.doctype"
+						:docname="props.id"
 					/>
 				</div>
 			</div>
@@ -331,6 +343,7 @@ import {
 } from "frappe-ui"
 import FormField from "@/components/FormField.vue"
 import FileUploaderView from "@/components/FileUploaderView.vue"
+import CommentsView from "@/components/CommentsView.vue"
 import WorkflowActionSheet from "@/components/WorkflowActionSheet.vue"
 
 import { FileAttachment, guessStatusColor } from "@/composables"
@@ -371,6 +384,11 @@ const props = defineProps({
 		required: false,
 	},
 	showAttachmentView: {
+		type: Boolean,
+		required: false,
+		default: false,
+	},
+	showCommentsView: {
 		type: Boolean,
 		required: false,
 		default: false,
