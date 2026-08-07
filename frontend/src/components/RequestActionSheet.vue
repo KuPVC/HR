@@ -69,6 +69,13 @@
 						</li>
 					</ul>
 				</div>
+
+				<!-- Comments -->
+				<CommentsView
+					v-if="document?.doc?.name"
+					:doctype="props.modelValue.doctype"
+					:docname="document.doc.name"
+				/>
 			</div>
 		</div>
 
@@ -168,6 +175,7 @@ import {
 import FormattedField from "@/components/FormattedField.vue"
 import FilePreviewModal from "@/components/FilePreviewModal.vue"
 import WorkflowActionSheet from "@/components/WorkflowActionSheet.vue"
+import CommentsView from "@/components/CommentsView.vue"
 
 import { getCompanyCurrency } from "@/data/currencies"
 import { settings } from "@/data/settings"
