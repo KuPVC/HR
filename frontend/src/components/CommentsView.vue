@@ -1,8 +1,8 @@
 <template>
-	<div class="flex flex-col gap-3 py-4">
+	<div class="flex flex-col gap-3 py-4 w-full">
 		<h2 class="text-base font-semibold text-gray-800">{{ __("Comments") }}</h2>
 
-		<div v-if="comments.data?.length" class="flex flex-col gap-4">
+		<div v-if="comments.data?.length" class="flex flex-col gap-4 w-full">
 			<div
 				v-for="comment in comments.data"
 				:key="comment.name"
