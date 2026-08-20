@@ -249,6 +249,7 @@ override_whitelisted_methods = {
 	"hrms.api.get_attendance_requests": "craft_hr.api.get_attendance_requests",
 	"hrms.api.get_leave_applications": "craft_hr.api.get_leave_applications",
 	"hrms.api.get_shift_requests": "craft_hr.api.get_shift_requests",
+	"hrms.api.get_doctype_fields": "craft_hr.api.get_doctype_fields",
 }
 
 # Job Events

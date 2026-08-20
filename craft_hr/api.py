@@ -2,6 +2,38 @@ import frappe
 from frappe.utils import add_days, add_to_date, cint, date_diff, flt, get_datetime, getdate, nowdate
 
 
+@frappe.whitelist()
+def get_doctype_fields(doctype: str) -> list[dict]:
+    """
+    Same as hrms.api.get_doctype_fields, but also includes HTML fields.
+    hrms's SUPPORTED_FIELD_TYPES allow-list excludes fieldtype "HTML"
+    entirely, which silently drops fields like Attendance Request's
+    custom_limit_balance_html before the ESS form ever sees them - FormView
+    renders those via a named slot (see FormView.vue's Table/HTML slot
+    handling), but the slot has nothing to match against if the field isn't
+    in the list at all.
+    """
+    from hrms.api import get_doctype_fields as get_hrms_doctype_fields
+
+    fields = get_hrms_doctype_fields(doctype)
+    existing = {field.fieldname for field in fields}
+
+    html_fields = [
+        field
+        for field in frappe.get_meta(doctype).fields
+        if field.fieldtype == "HTML" and field.fieldname not in existing
+    ]
+    if not html_fields:
+        return fields
+
+    by_name = {field.fieldname: field for field in fields + html_fields}
+    return [
+        by_name[meta_field.fieldname]
+        for meta_field in frappe.get_meta(doctype).fields
+        if meta_field.fieldname in by_name
+    ]
+
+
 def _get_reports_to_workflow_states(doctype: str) -> list[str]:
     """
     States of doctype's active Workflow whose incoming transition is gated by
