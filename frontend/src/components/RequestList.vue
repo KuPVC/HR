@@ -1,5 +1,8 @@
 <template>
-	<div class="flex flex-col bg-white rounded mt-5 overflow-auto" v-if="props.items?.length">
+	<div
+		class="flex flex-col bg-white rounded mt-5 overflow-auto"
+		v-if="props.items?.length"
+	>
 		<div
 			class="flex flex-row p-3.5 items-center justify-between border-b cursor-pointer"
 			v-for="link in props.items"
@@ -28,7 +31,10 @@
 			</Button>
 		</router-link>
 	</div>
-	<EmptyState :message="emptyStateMessage || __('You have no requests')" v-else />
+	<EmptyState
+		:message="emptyStateMessage || __('You have no requests')"
+		v-else
+	/>
 
 	<Dialog v-model="isRequestModalOpen" :options="{ size: '2xl' }">
 		<template #body>
@@ -94,6 +100,10 @@ const selectedRequest = ref(null)
 const openRequestModal = async (request) => {
 	if (request.doctype === "Material Request") {
 		window.open(`/app/material-request/${request.name}`, "_blank")
+		return
+	}
+	if (request.doctype === "Overtime Slip") {
+		window.open(`/app/overtime-slip/${request.name}`, "_blank")
 		return
 	}
 	selectedRequest.value = request

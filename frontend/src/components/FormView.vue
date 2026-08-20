@@ -44,7 +44,7 @@
 							{
 								label: __('Download PDF'),
 								condition: () => props.showDownloadPDFButton,
-								onClick: () => (handleDownload()),
+								onClick: () => handleDownload(),
 							},
 						]"
 						:button="{
@@ -55,7 +55,7 @@
 					/>
 				</div>
 				<h2 v-else class="text-2xl font-semibold text-gray-900">
-					{{ __('New {0}', [__(doctype)], props.doctype) }}
+					{{ __("New {0}", [__(doctype)], props.doctype) }}
 				</h2>
 			</header>
 
@@ -90,7 +90,7 @@
 						>
 							<template v-for="field in fieldList" :key="field.fieldname">
 								<slot
-									v-if="field.fieldtype == 'Table'"
+									v-if="['Table', 'HTML'].includes(field.fieldtype)"
 									:name="field.fieldname"
 									:isFormReadOnly="isFormReadOnly"
 								></slot>
@@ -112,6 +112,9 @@
 									:minDate="field.minDate"
 									:maxDate="field.maxDate"
 									:addSectionPadding="fieldList[0].name !== field.name"
+									:description="field.description"
+									:valuePreview="field.valuePreview"
+									:durationInput="field.durationInput"
 								/>
 							</template>
 
@@ -121,7 +124,9 @@
 								v-if="isFileUploading"
 							>
 								<LoadingIndicator class="w-3 h-3 text-gray-800" />
-								<span class="text-gray-900 text-sm">{{ __("Uploading...") }} </span>
+								<span class="text-gray-900 text-sm"
+									>{{ __("Uploading...") }}
+								</span>
 							</div>
 
 							<FileUploaderView
@@ -141,24 +146,34 @@
 				</template>
 
 				<div class="flex flex-col space-y-4 p-4" v-else>
-					<FormField
-						v-for="field in props.fields"
-						:key="field.name"
-						:fieldtype="field.fieldtype"
-						:fieldname="field.fieldname"
-						v-model="formModel[field.fieldname]"
-						:default="field.default"
-						:label="__(field.label, null, props.doctype)"
-						:options="field.options"
-						:linkFilters="field.linkFilters"
-						:documentList="field.documentList"
-						:readOnly="isFieldReadOnly(field)"
-						:reqd="Boolean(field.reqd)"
-						:hidden="Boolean(field.hidden)"
-						:errorMessage="field.error_message"
-						:minDate="field.minDate"
-						:maxDate="field.maxDate"
-					/>
+					<template v-for="field in props.fields" :key="field.name">
+						<slot
+							v-if="['Table', 'HTML'].includes(field.fieldtype)"
+							:name="field.fieldname"
+							:isFormReadOnly="isFormReadOnly"
+						></slot>
+
+						<FormField
+							v-else
+							:fieldtype="field.fieldtype"
+							:fieldname="field.fieldname"
+							v-model="formModel[field.fieldname]"
+							:default="field.default"
+							:label="__(field.label, null, props.doctype)"
+							:options="field.options"
+							:linkFilters="field.linkFilters"
+							:documentList="field.documentList"
+							:readOnly="isFieldReadOnly(field)"
+							:reqd="Boolean(field.reqd)"
+							:hidden="Boolean(field.hidden)"
+							:errorMessage="field.error_message"
+							:minDate="field.minDate"
+							:maxDate="field.maxDate"
+							:description="field.description"
+							:valuePreview="field.valuePreview"
+							:durationInput="field.durationInput"
+						/>
+					</template>
 
 					<!-- Attachment upload -->
 					<div
@@ -233,11 +248,13 @@
 	<!-- Confirmation Dialogs -->
 	<Dialog v-model="showDeleteDialog">
 		<template #body-title>
-			<h2 class="text-xl font-bold">{{ __("Delete {0}", [__(props.doctype)]) }}</h2>
+			<h2 class="text-xl font-bold">
+				{{ __("Delete {0}", [__(props.doctype)]) }}
+			</h2>
 		</template>
 		<template #body-content>
 			<p>
-				{{ __("Are you sure you want to delete the {0}", [__(props.doctype)])  }}
+				{{ __("Are you sure you want to delete the {0}", [__(props.doctype)]) }}
 				<span class="font-bold">{{ formModel.name }}</span>
 				?
 			</p>
@@ -257,7 +274,7 @@
 					@click="handleDocDelete"
 					class="py-5 w-full"
 				>
-					{{__("Delete") }}
+					{{ __("Delete") }}
 				</Button>
 			</div>
 		</template>
@@ -265,7 +282,7 @@
 
 	<Dialog v-model="showSubmitDialog">
 		<template #body-title>
-			<h2 class="text-xl font-bold">{{ __("Confirm") }} </h2>
+			<h2 class="text-xl font-bold">{{ __("Confirm") }}</h2>
 		</template>
 		<template #body-content>
 			<p>
@@ -296,7 +313,7 @@
 
 	<Dialog v-model="showCancelDialog">
 		<template #body-title>
-			<h2 class="text-xl font-bold">{{ __("Confirm") }} </h2>
+			<h2 class="text-xl font-bold">{{ __("Confirm") }}</h2>
 		</template>
 		<template #body-content>
 			<p>
@@ -650,9 +667,9 @@ function hasPermission(action) {
 
 function isFieldReadOnly(field) {
 	return (
-		Boolean(field.read_only)
-		|| isFormReadOnly.value
-		|| (props.id && !permittedWriteFields.data?.includes(field.fieldname))
+		Boolean(field.read_only) ||
+		isFormReadOnly.value ||
+		(props.id && !permittedWriteFields.data?.includes(field.fieldname))
 	)
 }
 

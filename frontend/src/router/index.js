@@ -4,6 +4,7 @@ import attendanceRoutes from "./attendance"
 import leaveRoutes from "./leaves"
 import salarySlipRoutes from "./salary_slips"
 import materialRequestRoutes from "./material_request"
+import overtimeSlipRoutes from "./overtime_slip"
 
 const routes = [
 	{
@@ -69,6 +70,7 @@ const routes = [
 	...leaveRoutes,
 	...salarySlipRoutes,
 	...materialRequestRoutes,
+	...overtimeSlipRoutes,
 ]
 
 const router = createRouter({

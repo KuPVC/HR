@@ -1,9 +1,6 @@
 <template>
 	<div class="w-full">
-		<TabButtons
-			:buttons="TAB_BUTTONS"
-			v-model="activeTab"
-		/>
+		<TabButtons :buttons="TAB_BUTTONS" v-model="activeTab" />
 		<RequestList v-if="activeTab == 'My Requests'" :items="myRequests" />
 		<RequestList
 			v-else-if="activeTab == 'Team Requests'"
@@ -20,14 +17,21 @@ import { createResource } from "frappe-ui"
 import TabButtons from "@/components/TabButtons.vue"
 import RequestList from "@/components/RequestList.vue"
 
-import { myAttendanceRequests, myShiftRequests, teamShiftRequests, teamAttendanceRequests } from "@/data/attendance"
+import {
+	myAttendanceRequests,
+	myShiftRequests,
+	teamShiftRequests,
+	teamAttendanceRequests,
+} from "@/data/attendance"
 import { myLeaves, teamLeaves } from "@/data/leaves"
 import { myMaterialRequests } from "@/data/material_requests"
+import { teamOvertimeSlips } from "@/data/overtime_slips"
 
 import AttendanceRequestItem from "@/components/AttendanceRequestItem.vue"
 import LeaveRequestItem from "@/components/LeaveRequestItem.vue"
 import ShiftRequestItem from "@/components/ShiftRequestItem.vue"
 import MaterialRequestItem from "@/components/MaterialRequestItem.vue"
+import OvertimeSlipItem from "@/components/OvertimeSlipItem.vue"
 
 import { useListUpdate } from "@/composables/realtime"
 
@@ -41,7 +45,9 @@ const canApproveTeamRequests = createResource({
 })
 
 const TAB_BUTTONS = computed(() =>
-	canApproveTeamRequests.data ? ["My Requests", "Team Requests"] : ["My Requests"]
+	canApproveTeamRequests.data
+		? ["My Requests", "Team Requests"]
+		: ["My Requests"]
 ) // __("My Requests"), __("Team Requests")
 
 const myRequests = computed(() =>
@@ -58,11 +64,12 @@ const myRequests = computed(() =>
 
 const teamRequests = computed(() =>
 	updateRequestDetails(
-		[teamLeaves, teamShiftRequests, teamAttendanceRequests],
+		[teamLeaves, teamShiftRequests, teamAttendanceRequests, teamOvertimeSlips],
 		{
 			"Leave Application": LeaveRequestItem,
 			"Shift Request": ShiftRequestItem,
 			"Attendance Request": AttendanceRequestItem,
+			"Overtime Slip": OvertimeSlipItem,
 		}
 	)
 )
@@ -90,8 +97,24 @@ function getSortedRequests(list) {
 }
 
 onMounted(() => {
+	// these are shared module-level resources (cached by `cache:` key) so
+	// importing them elsewhere never refetches them - reload explicitly
+	// whenever this panel mounts so a just-created/updated request shows up
+	// without a manual page refresh.
+	myLeaves.reload()
+	myShiftRequests.reload()
+	myAttendanceRequests.reload()
+	myMaterialRequests.reload()
+	teamLeaves.reload()
+	teamShiftRequests.reload()
+	teamAttendanceRequests.reload()
+	teamOvertimeSlips.reload()
+
 	useListUpdate(socket, "Leave Application", () => teamLeaves.reload())
 	useListUpdate(socket, "Shift Request", () => teamShiftRequests.reload())
-	useListUpdate(socket, "Attendance Request", () => teamAttendanceRequests.reload())
+	useListUpdate(socket, "Attendance Request", () =>
+		teamAttendanceRequests.reload()
+	)
+	useListUpdate(socket, "Overtime Slip", () => teamOvertimeSlips.reload())
 })
 </script>

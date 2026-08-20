@@ -14,7 +14,8 @@ export const formatCurrency = (value, currency) => {
 	// hack: if value contains a space, it is already formatted
 	if (value?.toString().trim().includes(" ")) return value
 
-	const locale = settings.doc?.country == "India" ? "en-IN" : settings.doc?.language
+	const locale =
+		settings.doc?.country == "India" ? "en-IN" : settings.doc?.language
 
 	const formatter = Intl.NumberFormat(locale, {
 		style: "currency",
@@ -30,6 +31,33 @@ export const formatCurrency = (value, currency) => {
 			// remove extra spaces if any (added by some browsers)
 			.replace(/\s+/, " ")
 	)
+}
+
+// hoursDecimal (e.g. 1.4090) -> "1 hr 24 min 32 sec", dropping any leading
+// zero units so a sub-minute gap reads as "43 sec" rather than "0 hr 0 min 43 sec"
+export const formatHoursDuration = (hoursDecimal) => {
+	const totalSeconds = Math.round(hoursDecimal * 3600)
+	const hours = Math.floor(totalSeconds / 3600)
+	const minutes = Math.floor((totalSeconds % 3600) / 60)
+	const seconds = totalSeconds % 60
+
+	const parts = []
+	if (hours) parts.push(`${hours} hr`)
+	if (minutes) parts.push(`${minutes} min`)
+	if (seconds || !parts.length) parts.push(`${seconds} sec`)
+
+	return parts.join(" ")
+}
+
+// inverse of formatHoursDuration - hoursDecimal -> {hours, minutes, seconds},
+// used to pre-fill the hr/min/sec picker with whatever's already in the field
+export const decomposeHoursDuration = (hoursDecimal) => {
+	const totalSeconds = Math.round((hoursDecimal || 0) * 3600)
+	return {
+		hours: Math.floor(totalSeconds / 3600),
+		minutes: Math.floor((totalSeconds % 3600) / 60),
+		seconds: totalSeconds % 60,
+	}
 }
 
 export const formatTimestamp = (timestamp) => {

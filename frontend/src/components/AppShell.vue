@@ -2,7 +2,9 @@
 	<div class="min-h-screen w-full bg-gray-50 flex flex-col">
 		<!-- Top nav -->
 		<header class="bg-white border-b border-gray-200 sticky top-0 z-40">
-			<div class="w-full px-4 md:px-8 flex flex-row items-center justify-between h-16">
+			<div
+				class="w-full px-4 md:px-8 flex flex-row items-center justify-between h-16"
+			>
 				<div class="flex flex-row items-center gap-3">
 					<span
 						v-if="employee?.data?.company"
@@ -10,10 +12,7 @@
 					>
 						{{ employee.data.company }}
 					</span>
-					<span
-						v-else
-						class="h-5 w-40 rounded bg-gray-100 animate-pulse"
-					/>
+					<span v-else class="h-5 w-40 rounded bg-gray-100 animate-pulse" />
 				</div>
 
 				<div class="flex flex-row items-center gap-4">
@@ -24,8 +23,15 @@
 							class="absolute -top-0.5 -right-0.5 inline-block w-2 h-2 bg-red-600 rounded-full border border-white"
 						/>
 					</router-link>
-					<router-link :to="{ name: 'Profile' }" class="flex flex-row items-center gap-2">
-						<Avatar :image="user.data?.user_image" :label="user.data?.first_name" size="lg" />
+					<router-link
+						:to="{ name: 'Profile' }"
+						class="flex flex-row items-center gap-2"
+					>
+						<Avatar
+							:image="user.data?.user_image"
+							:label="user.data?.first_name"
+							size="lg"
+						/>
 						<span class="hidden sm:inline text-sm font-medium text-gray-800">
 							{{ user.data?.first_name }}
 						</span>
@@ -36,13 +42,19 @@
 
 		<div class="flex flex-1 w-full max-w-[1600px] mx-auto">
 			<!-- Sidebar (desktop/tablet) -->
-			<aside class="hidden md:flex md:flex-col w-56 shrink-0 border-r border-gray-200 bg-white px-3 py-6 gap-1">
+			<aside
+				class="hidden md:flex md:flex-col w-56 shrink-0 border-r border-gray-200 bg-white px-3 py-6 gap-1"
+			>
 				<router-link
 					v-for="link in navLinks"
 					:key="link.name"
 					:to="{ name: link.name }"
 					class="flex flex-row items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-					:class="isActive(link) ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'"
+					:class="
+						isActive(link)
+							? 'bg-gray-900 text-white'
+							: 'text-gray-700 hover:bg-gray-100'
+					"
 				>
 					<component :is="link.icon" class="h-4 w-4" />
 					{{ link.label }}
@@ -77,9 +89,9 @@
 </template>
 
 <script setup>
-import { inject } from "vue"
+import { inject, computed } from "vue"
 import { useRoute } from "vue-router"
-import { Avatar, FeatherIcon } from "frappe-ui"
+import { Avatar, FeatherIcon, createResource } from "frappe-ui"
 
 import { unreadNotificationsCount } from "@/data/notifications"
 
@@ -88,6 +100,7 @@ import AttendanceIcon from "@/components/icons/AttendanceIcon.vue"
 import LeaveIcon from "@/components/icons/LeaveIcon.vue"
 import SalaryIcon from "@/components/icons/SalaryIcon.vue"
 import MaterialRequestIcon from "@/components/icons/MaterialRequestIcon.vue"
+import OvertimeSlipIcon from "@/components/icons/OvertimeSlipIcon.vue"
 
 const __ = inject("$translate")
 const user = inject("$user")
@@ -102,13 +115,44 @@ defineProps({
 	},
 })
 
-const navLinks = [
-	{ name: "Home", label: __("Home"), icon: HomeIcon },
-	{ name: "AttendanceDashboard", label: __("Attendance"), icon: AttendanceIcon },
-	{ name: "LeavesDashboard", label: __("Leaves"), icon: LeaveIcon },
-	{ name: "SalarySlipsDashboard", label: __("Salary Slips"), icon: SalaryIcon },
-	{ name: "MaterialRequestListView", label: __("Material Request"), icon: MaterialRequestIcon },
-]
+// Same manager-only gate as the Team Requests tab on Home - Overtime Slip
+// is only relevant to people with reports, so it's hidden from the nav
+// entirely rather than shown as an empty page for everyone.
+const canApproveTeamRequests = createResource({
+	url: "craft_hr.api.can_approve_team_requests",
+	cache: "craft_hr:can_approve_team_requests",
+	auto: true,
+})
+
+const navLinks = computed(() => {
+	const links = [
+		{ name: "Home", label: __("Home"), icon: HomeIcon },
+		{
+			name: "AttendanceDashboard",
+			label: __("Attendance"),
+			icon: AttendanceIcon,
+		},
+		{ name: "LeavesDashboard", label: __("Leaves"), icon: LeaveIcon },
+		{
+			name: "SalarySlipsDashboard",
+			label: __("Salary Slips"),
+			icon: SalaryIcon,
+		},
+		{
+			name: "MaterialRequestListView",
+			label: __("Material Request"),
+			icon: MaterialRequestIcon,
+		},
+	]
+	if (canApproveTeamRequests.data) {
+		links.push({
+			name: "OvertimeSlipListView",
+			label: __("Overtime Slip"),
+			icon: OvertimeSlipIcon,
+		})
+	}
+	return links
+})
 
 function isActive(link) {
 	return route.name === link.name

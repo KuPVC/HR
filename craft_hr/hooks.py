@@ -238,6 +238,19 @@ override_doctype_dashboards = {
 # before_request = ["craft_hr.utils.before_request"]
 # after_request = ["craft_hr.utils.after_request"]
 
+# hrms's own approver-based "for approval" lists (Team Requests on the /ess
+# home screen) have no concept of sj_hr's reports_to workflow approver
+# mechanism (workflow_reports_to.py) - they only match a transition's
+# role-based `allowed` field. These overrides wrap the same hrms endpoints
+# the frontend already calls and additively merge in documents pending on a
+# reports_to-gated workflow state for the current user's direct reports,
+# without touching the hrms app itself.
+override_whitelisted_methods = {
+	"hrms.api.get_attendance_requests": "craft_hr.api.get_attendance_requests",
+	"hrms.api.get_leave_applications": "craft_hr.api.get_leave_applications",
+	"hrms.api.get_shift_requests": "craft_hr.api.get_shift_requests",
+}
+
 # Job Events
 # ----------
 # before_job = ["craft_hr.utils.before_job"]

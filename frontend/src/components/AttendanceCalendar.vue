@@ -1,8 +1,12 @@
 <template>
 	<div class="flex flex-col w-full gap-5" v-if="calendarEvents.data">
-		<div class="text-lg text-gray-800 font-bold">{{ __("Attendance Calendar") }}</div>
+		<div class="text-lg text-gray-800 font-bold">
+			{{ __("Attendance Calendar") }}
+		</div>
 
-		<div class="flex flex-col gap-6 bg-white py-6 px-3.5 rounded-lg border-none">
+		<div
+			class="flex flex-col gap-6 bg-white py-6 px-3.5 rounded-lg border-none"
+		>
 			<!-- Period Change -->
 			<div class="flex flex-row justify-between items-center px-4">
 				<Button
@@ -30,12 +34,15 @@
 					{{ day }}
 				</div>
 				<div v-for="n in leadingOffset" :key="`blank-${n}`" />
-				<div v-for="cellDate in periodDates" :key="cellDate.format('YYYY-MM-DD')">
+				<div
+					v-for="cellDate in periodDates"
+					:key="cellDate.format('YYYY-MM-DD')"
+				>
 					<button
 						type="button"
 						class="relative h-9 w-9 mx-auto block"
-						:class="isActionable(cellDate) ? 'cursor-pointer' : 'cursor-default'"
-						:disabled="!isActionable(cellDate)"
+						:class="hasInfo(cellDate) ? 'cursor-pointer' : 'cursor-default'"
+						:disabled="!hasInfo(cellDate)"
 						@click="handleDateClick(cellDate)"
 					>
 						<div
@@ -43,12 +50,18 @@
 							:class="[
 								statusClass(cellDate),
 								isCarryOver(cellDate) ? 'opacity-40' : '',
-								isHighlighted(cellDate) ? 'animate-pulse ring-2 ring-offset-1 ' + highlightRingClass : '',
+								isHighlighted(cellDate)
+									? 'animate-pulse ring-2 ring-offset-1 ' + highlightRingClass
+									: '',
 							]"
 						>
 							<span
 								class="text-gray-800 text-sm font-medium m-auto"
-								:class="isToday(cellDate) ? 'underline decoration-2 underline-offset-2' : ''"
+								:class="
+									isToday(cellDate)
+										? 'underline decoration-2 underline-offset-2'
+										: ''
+								"
 							>
 								{{ cellDate.format("D") }}
 							</span>
@@ -89,7 +102,9 @@
 					:class="[
 						card.bg,
 						card.border,
-						isActiveFilter(card.type, card.value) ? 'ring-2 ring-offset-1 ' + card.ring : 'hover:shadow-sm',
+						isActiveFilter(card.type, card.value)
+							? 'ring-2 ring-offset-1 ' + card.ring
+							: 'hover:shadow-sm',
 					]"
 					@click="toggleFilter(card.type, card.value)"
 				>
@@ -99,7 +114,10 @@
 							{{ card.label }}
 						</span>
 					</div>
-					<span class="text-xl font-semibold leading-6" :class="card.textStrong">
+					<span
+						class="text-xl font-semibold leading-6"
+						:class="card.textStrong"
+					>
 						{{ card.count }}
 					</span>
 				</button>
@@ -108,18 +126,82 @@
 
 		<div class="flex flex-row items-center gap-1.5 px-1 text-xs text-gray-500">
 			<FeatherIcon name="info" class="h-3.5 w-3.5 shrink-0" />
-			<span>{{ __("Tip: click on a date to request attendance or leave for that day.") }}</span>
+			<span>{{
+				__("Tip: click on a date to see check-in details or raise a request.")
+			}}</span>
 		</div>
 
-		<Dialog v-model="showChoiceDialog" :options="{ title: __('What would you like to do?') }">
+		<Dialog v-model="showInfoDialog" :options="{ title: selectedDateLabel }">
 			<template #body-content>
-				<div class="flex flex-col gap-2">
-					<Button variant="solid" class="w-full" @click="goToAttendanceRequest">
-						{{ __("Attendance Request") }}
-					</Button>
-					<Button variant="outline" class="w-full" @click="goToLeaveApplication">
-						{{ __("Leave Request") }}
-					</Button>
+				<div class="flex flex-col gap-4">
+					<div class="flex flex-col gap-1">
+						<div class="text-sm text-gray-500">{{ __("Status") }}</div>
+						<div class="text-base font-medium text-gray-800">
+							{{ __(selectedEvent?.status || "No Record") }}
+						</div>
+					</div>
+
+					<div v-if="dayCheckins.data?.length" class="flex flex-col gap-2">
+						<div class="text-sm text-gray-500">{{ __("Check-in Logs") }}</div>
+						<div class="flex flex-row flex-wrap gap-2">
+							<Badge
+								v-for="checkin in dayCheckins.data"
+								:key="checkin.name"
+								variant="subtle"
+								:theme="checkin.attendance ? 'green' : 'gray'"
+								size="md"
+								:label="`${checkin.log_type} · ${dayjs(checkin.time).format(
+									'h:mm A'
+								)}`"
+							/>
+						</div>
+						<div class="text-xs text-gray-500">
+							{{
+								__("Green indicates the log used for this day's attendance.")
+							}}
+						</div>
+					</div>
+
+					<div
+						v-if="selectedEvent?.short_hours"
+						class="text-sm text-purple-700"
+					>
+						{{
+							__("Short by {0}", [
+								formatHoursDuration(selectedEvent.hours_difference),
+							])
+						}}
+					</div>
+					<div v-if="selectedEvent?.late_entry" class="text-sm text-amber-700">
+						{{ __("Late Entry") }}
+					</div>
+					<div v-if="selectedEvent?.missed_punch" class="text-sm text-pink-700">
+						{{ __("Missed Punch") }}
+					</div>
+
+					<div
+						v-if="selectedDate && isActionable(selectedDate)"
+						class="flex flex-col gap-2 pt-3 border-t"
+					>
+						<div class="text-sm text-gray-500">
+							{{ __("Need to raise a request for this date?") }}
+						</div>
+						<Button
+							variant="solid"
+							class="w-full"
+							@click="goToAttendanceRequest"
+						>
+							{{ __("Attendance Request") }}
+						</Button>
+						<Button
+							v-if="selectedEvent?.status === 'Absent'"
+							variant="outline"
+							class="w-full"
+							@click="goToLeaveApplication"
+						>
+							{{ __("Leave Application") }}
+						</Button>
+					</div>
 				</div>
 			</template>
 		</Dialog>
@@ -129,7 +211,9 @@
 <script setup>
 import { computed, inject, ref, watch } from "vue"
 import { useRouter } from "vue-router"
-import { Dialog, FeatherIcon, createResource } from "frappe-ui"
+import { Badge, Dialog, FeatherIcon, createResource } from "frappe-ui"
+
+import { formatHoursDuration } from "@/utils/formatters"
 
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
@@ -286,35 +370,48 @@ function isActionable(date) {
 	return !!(event.late_entry || event.short_hours || event.missed_punch)
 }
 
-const showChoiceDialog = ref(false)
+// a date is worth opening the info dialog for when there's an Attendance
+// event to show (check-in/out, flags) or it's actionable (missing record).
+function hasInfo(date) {
+	if (date.isAfter(today, "day")) return false
+	return !!getEventOnDate(date) || isActionable(date)
+}
+
+const showInfoDialog = ref(false)
 const selectedDate = ref(null)
+const selectedEvent = computed(() =>
+	selectedDate.value ? getEventOnDate(selectedDate.value) : null
+)
+const selectedDateLabel = computed(() =>
+	selectedDate.value ? selectedDate.value.format("D MMMM YYYY") : ""
+)
+
+const dayCheckins = createResource({
+	url: "craft_hr.api.get_checkins_for_period",
+	auto: false,
+})
 
 function handleDateClick(date) {
-	if (!isActionable(date)) return
+	if (!hasInfo(date)) return
+	selectedDate.value = date
+	showInfoDialog.value = true
 
-	const event = getEventOnDate(date)
-	if (event?.status === "Absent") {
-		selectedDate.value = date
-		showChoiceDialog.value = true
-		return
-	}
-
-	router.push({
-		name: "AttendanceRequestFormView",
-		query: { date: date.format("YYYY-MM-DD") },
-	})
+	const dateStr = date.format("YYYY-MM-DD")
+	dayCheckins.fetch({ from_date: dateStr, to_date: dateStr })
 }
 
 function goToAttendanceRequest() {
-	showChoiceDialog.value = false
-	router.push({
-		name: "AttendanceRequestFormView",
-		query: { date: selectedDate.value.format("YYYY-MM-DD") },
-	})
+	showInfoDialog.value = false
+	const event = selectedEvent.value
+	const query = { date: selectedDate.value.format("YYYY-MM-DD") }
+	if (event?.short_hours && event.hours_difference) {
+		query.hours = event.hours_difference
+	}
+	router.push({ name: "AttendanceRequestFormView", query })
 }
 
 function goToLeaveApplication() {
-	showChoiceDialog.value = false
+	showInfoDialog.value = false
 	router.push({
 		name: "LeaveApplicationFormView",
 		query: { date: selectedDate.value.format("YYYY-MM-DD") },
@@ -324,7 +421,10 @@ function goToLeaveApplication() {
 const activeFilter = ref(null) // { type: 'status' | 'flag', value: string }
 
 function toggleFilter(type, value) {
-	if (activeFilter.value?.type === type && activeFilter.value?.value === value) {
+	if (
+		activeFilter.value?.type === type &&
+		activeFilter.value?.value === value
+	) {
 		activeFilter.value = null
 	} else {
 		activeFilter.value = { type, value }
@@ -332,7 +432,9 @@ function toggleFilter(type, value) {
 }
 
 function isActiveFilter(type, value) {
-	return activeFilter.value?.type === type && activeFilter.value?.value === value
+	return (
+		activeFilter.value?.type === type && activeFilter.value?.value === value
+	)
 }
 
 function isHighlighted(date) {
@@ -358,7 +460,8 @@ const summary = computed(() => {
 	const summary = {}
 
 	for (const event of Object.values(calendarEvents.data || {})) {
-		let updatedStatus = event.status === "Work From Home" ? "Present" : event.status
+		let updatedStatus =
+			event.status === "Work From Home" ? "Present" : event.status
 		if (!updatedStatus) continue
 		summary[updatedStatus] = (summary[updatedStatus] || 0) + 1
 	}

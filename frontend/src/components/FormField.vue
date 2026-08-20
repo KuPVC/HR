@@ -2,7 +2,9 @@
 	<div v-if="showField" class="flex flex-col gap-1.5">
 		<!-- Label -->
 		<span
-			v-if="!['Check', 'Section Break', 'Column Break'].includes(props.fieldtype)"
+			v-if="
+				!['Check', 'Section Break', 'Column Break'].includes(props.fieldtype)
+			"
 			:class="[
 				// mark field as mandatory
 				props.reqd ? `after:content-['_*'] after:text-red-600` : ``,
@@ -93,15 +95,57 @@
 		/>
 
 		<!-- Float/Int field -->
-		<Input
-			v-else-if="isNumberType"
-			type="number"
-			:value="modelValue"
-			@input="(v) => emit('update:modelValue', v)"
-			@change="(v) => emit('change', v)"
-			v-bind="$attrs"
-			:disabled="isReadOnly"
-		/>
+		<div v-else-if="isNumberType" class="flex flex-row gap-2">
+			<Input
+				type="number"
+				:value="modelValue"
+				@input="(v) => emit('update:modelValue', v)"
+				@change="(v) => emit('change', v)"
+				v-bind="$attrs"
+				:disabled="isReadOnly"
+				class="grow"
+			/>
+			<Popover v-if="props.durationInput && !isReadOnly">
+				<template #target="{ togglePopover }">
+					<Button
+						variant="outline"
+						icon="clock"
+						:title="__('Enter as hr / min / sec')"
+						@click="openDurationPicker(togglePopover)"
+					/>
+				</template>
+				<template #body-main="{ close }">
+					<div class="flex flex-col gap-3 p-3 w-60">
+						<div class="text-xs text-gray-500">
+							{{ __("Enter as hours, minutes, seconds") }}
+						</div>
+						<div class="flex flex-row gap-2">
+							<Input
+								type="number"
+								:value="durationParts.hours"
+								@input="(v) => (durationParts.hours = v)"
+								:placeholder="__('hr')"
+							/>
+							<Input
+								type="number"
+								:value="durationParts.minutes"
+								@input="(v) => (durationParts.minutes = v)"
+								:placeholder="__('min')"
+							/>
+							<Input
+								type="number"
+								:value="durationParts.seconds"
+								@input="(v) => (durationParts.seconds = v)"
+								:placeholder="__('sec')"
+							/>
+						</div>
+						<Button variant="solid" @click="applyDuration(close)">
+							{{ __("Apply") }}
+						</Button>
+					</div>
+				</template>
+			</Popover>
+		</div>
 
 		<!-- Section Break -->
 		<div
@@ -145,15 +189,31 @@
 			:disabled="isReadOnly"
 		/>
 
+		<span v-if="props.description" class="text-xs text-gray-500">
+			{{ props.description }}
+		</span>
+		<span v-if="previewText" class="text-xs font-medium text-gray-600">
+			{{ previewText }}
+		</span>
+
 		<ErrorMessage :message="props.errorMessage" />
 	</div>
 </template>
 
 <script setup>
-import { Autocomplete, DateTimePicker, ErrorMessage, Input, TextEditor } from "frappe-ui"
-import { computed, onMounted, inject } from "vue"
+import {
+	Autocomplete,
+	Button,
+	DateTimePicker,
+	ErrorMessage,
+	Input,
+	Popover,
+	TextEditor,
+} from "frappe-ui"
+import { computed, onMounted, inject, reactive } from "vue"
 
 import Link from "@/components/Link.vue"
+import { decomposeHoursDuration } from "@/utils/formatters"
 
 const __ = inject("$translate")
 
@@ -179,6 +239,22 @@ const props = defineProps({
 		type: Boolean,
 		default: true,
 	},
+	description: {
+		type: String,
+		required: false,
+	},
+	// optional (value) => string, rendered live below the field - e.g.
+	// translating a decimal-hours entry into "1 hr 24 min 32 sec"
+	valuePreview: {
+		type: Function,
+		required: false,
+	},
+	// shows an hr/min/sec picker next to a Float/Int field so the user
+	// doesn't have to convert a duration to a decimal by hand
+	durationInput: {
+		type: Boolean,
+		default: false,
+	},
 })
 
 const emit = defineEmits(["change", "update:modelValue"])
@@ -194,12 +270,37 @@ const isNumberType = computed(() => {
 	return ["Int", "Float", "Currency"].includes(props.fieldtype)
 })
 
+const durationParts = reactive({ hours: 0, minutes: 0, seconds: 0 })
+
+function openDurationPicker(togglePopover) {
+	const parts = decomposeHoursDuration(props.modelValue)
+	durationParts.hours = parts.hours
+	durationParts.minutes = parts.minutes
+	durationParts.seconds = parts.seconds
+	togglePopover()
+}
+
+function applyDuration(close) {
+	const hours = Number(durationParts.hours) || 0
+	const minutes = Number(durationParts.minutes) || 0
+	const seconds = Number(durationParts.seconds) || 0
+	const decimal =
+		Math.round((hours + minutes / 60 + seconds / 3600) * 10000) / 10000
+	emit("update:modelValue", decimal)
+	close()
+}
+
 const isLayoutField = computed(() => {
 	return ["Section Break", "Column Break"].includes(props.fieldtype)
 })
 
 const isReadOnly = computed(() => {
 	return Boolean(props.readOnly)
+})
+
+const previewText = computed(() => {
+	if (!props.valuePreview) return ""
+	return props.valuePreview(props.modelValue) || ""
 })
 
 const selectionList = computed(() => {
@@ -231,7 +332,9 @@ function setDefaultValue() {
 			emit("update:modelValue", props.default)
 		}
 	} else {
-		props.fieldtype === "Check" ? emit("update:modelValue", false) : emit("update:modelValue", "")
+		props.fieldtype === "Check"
+			? emit("update:modelValue", false)
+			: emit("update:modelValue", "")
 	}
 }
 
