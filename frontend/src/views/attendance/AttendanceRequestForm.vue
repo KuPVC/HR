@@ -83,6 +83,11 @@ const formFields = createResource({
 		const to_date_field = data.find((field) => field.fieldname === "to_date")
 		if (to_date_field) to_date_field.hidden = true
 
+		// Only one date field is shown (see above), so "From Date" reads
+		// oddly to an employee - relabel it plainly as "Date".
+		const from_date_field = data.find((field) => field.fieldname === "from_date")
+		if (from_date_field) from_date_field.label = __("Date")
+
 		const hoursField = data.find(
 			(field) => field.fieldname === "custom_hours_requested"
 		)
