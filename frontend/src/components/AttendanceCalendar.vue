@@ -180,6 +180,32 @@
 					</div>
 
 					<div
+						v-if="selectedEvent?.requests?.length"
+						class="flex flex-col gap-2"
+					>
+						<div class="text-sm text-gray-500">
+							{{ __("Requests For This Date") }}
+						</div>
+						<button
+							type="button"
+							v-for="req in selectedEvent.requests"
+							:key="`${req.doctype}-${req.name}`"
+							class="flex flex-row justify-between items-center gap-2 rounded-lg border p-2.5 text-left hover:bg-gray-50"
+							@click="goToExistingRequest(req)"
+						>
+							<span class="text-sm text-gray-800">
+								{{ __(req.doctype) }}
+							</span>
+							<Badge
+								variant="subtle"
+								:theme="requestStatusTheme(req.status)"
+								size="md"
+								:label="__(req.status)"
+							/>
+						</button>
+					</div>
+
+					<div
 						v-if="selectedDate && isActionable(selectedDate)"
 						class="flex flex-col gap-2 pt-3 border-t"
 					>
@@ -398,6 +424,25 @@ function handleDateClick(date) {
 
 	const dateStr = date.format("YYYY-MM-DD")
 	dayCheckins.fetch({ from_date: dateStr, to_date: dateStr })
+}
+
+const REQUEST_ROUTE_BY_DOCTYPE = {
+	"Attendance Request": "AttendanceRequestDetailView",
+	"Leave Application": "LeaveApplicationDetailView",
+}
+
+function requestStatusTheme(status) {
+	if (status === "Approved") return "green"
+	if (status === "Rejected") return "red"
+	return "orange" // Pending / Open
+}
+
+function goToExistingRequest(req) {
+	showInfoDialog.value = false
+	router.push({
+		name: REQUEST_ROUTE_BY_DOCTYPE[req.doctype],
+		params: { id: req.name },
+	})
 }
 
 function goToAttendanceRequest() {

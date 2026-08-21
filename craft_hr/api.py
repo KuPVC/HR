@@ -202,17 +202,77 @@ def get_shift_requests(
     return _merge_reports_to_documents(results, "Shift Request", fields, workflow_state_field, limit)
 
 
+def _dates_between(start, end):
+    date = getdate(start)
+    end = getdate(end)
+    while date_diff(end, date) >= 0:
+        yield date
+        date = add_days(date, 1)
+
+
+def _requests_by_date(employee: str, from_date: str, to_date: str) -> dict:
+    """Existing Attendance Request / Leave Application docs (any non-cancelled
+    docstatus, so pending drafts show up too) overlapping [from_date, to_date],
+    exploded per calendar date they cover - lets the calendar popup show and
+    link to a request/application an employee already placed for a date,
+    instead of only ever offering to raise a new one."""
+    requests_by_date = {}
+
+    attendance_requests = frappe.get_all(
+        "Attendance Request",
+        filters={
+            "employee": employee,
+            "docstatus": ["<", 2],
+            "from_date": ["<=", to_date],
+            "to_date": [">=", from_date],
+        },
+        fields=["name", "from_date", "to_date", "docstatus"],
+    )
+    for req in attendance_requests:
+        status = "Approved" if req.docstatus == 1 else "Pending"
+        overlap_start = max(getdate(from_date), getdate(req.from_date))
+        overlap_end = min(getdate(to_date), getdate(req.to_date))
+        for date in _dates_between(overlap_start, overlap_end):
+            requests_by_date.setdefault(str(date), []).append(
+                {"doctype": "Attendance Request", "name": req.name, "status": status}
+            )
+
+    leave_applications = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": employee,
+            "docstatus": ["<", 2],
+            "from_date": ["<=", to_date],
+            "to_date": [">=", from_date],
+        },
+        fields=["name", "from_date", "to_date", "status"],
+    )
+    for leave in leave_applications:
+        overlap_start = max(getdate(from_date), getdate(leave.from_date))
+        overlap_end = min(getdate(to_date), getdate(leave.to_date))
+        for date in _dates_between(overlap_start, overlap_end):
+            requests_by_date.setdefault(str(date), []).append(
+                {"doctype": "Leave Application", "name": leave.name, "status": leave.status}
+            )
+
+    return requests_by_date
+
+
 @frappe.whitelist()
 def get_attendance_calendar_details(from_date: str, to_date: str) -> dict:
     """
     Attendance calendar events enriched with late entry / short hours / missed
     punch flags (mirrors the flags used by sj_hr's Monthly Attendance Sheet
-    report) for the logged-in employee, for the given date range.
+    report) for the logged-in employee, for the given date range. Also
+    attaches any existing Attendance Request / Leave Application already
+    placed for each date, so the calendar popup can show and link to it
+    instead of only ever offering to raise a new one.
     """
     from hrms.api import get_current_employee, get_holidays_for_calendar
 
     employee = get_current_employee()
     holidays = get_holidays_for_calendar(employee, from_date, to_date)
+    requests_by_date = _requests_by_date(employee, from_date, to_date)
 
     attendance_meta = frappe.get_meta("Attendance")
     has_short_hours = attendance_meta.has_field("custom_short_hours")
@@ -266,7 +326,23 @@ def get_attendance_calendar_details(from_date: str, to_date: str) -> dict:
                 "in_time": None,
                 "out_time": None,
             }
+        elif date_str in requests_by_date:
+            # No Attendance/Holiday for this date, but a request already
+            # covers it (e.g. a pending Leave Application for a future or
+            # not-yet-processed date) - still worth surfacing in the popup.
+            events[date_str] = {
+                "status": None,
+                "late_entry": 0,
+                "short_hours": 0,
+                "missed_punch": 0,
+                "hours_difference": 0,
+                "in_time": None,
+                "out_time": None,
+            }
         date = add_days(date, 1)
+
+    for date_str, event in events.items():
+        event["requests"] = requests_by_date.get(date_str, [])
 
     return events
 
