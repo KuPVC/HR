@@ -77,6 +77,12 @@ const formFields = createResource({
 		const shiftField = data.find((field) => field.fieldname === "shift")
 		if (shiftField) shiftField.hidden = true
 
+		// Employees only ever fill in one date - to_date is always kept in
+		// sync with from_date (see the from_date watcher below), so it's
+		// never shown as a separate field to fill in twice.
+		const to_date_field = data.find((field) => field.fieldname === "to_date")
+		if (to_date_field) to_date_field.hidden = true
+
 		const hoursField = data.find(
 			(field) => field.fieldname === "custom_hours_requested"
 		)
@@ -99,6 +105,12 @@ const formFields = createResource({
 	},
 })
 
+// Backs refreshReasonFilter() below.
+const relevantTypes = createResource({
+	url: "sj_hr.overrides.attendance_request.get_relevant_request_types",
+	auto: false,
+})
+
 // form scripts
 watch(
 	() => attendanceRequest.value.employee,
@@ -107,15 +119,15 @@ watch(
 			// if employee is not the current user, set form as read only
 			setFormReadOnly()
 		}
+		refreshReasonFilter()
 	}
 )
 
 watch(
 	() => attendanceRequest.value.from_date,
 	(from_date) => {
-		if (!attendanceRequest.value.to_date) {
-			attendanceRequest.value.to_date = from_date
-		}
+		attendanceRequest.value.to_date = from_date
+		refreshReasonFilter()
 	}
 )
 
@@ -160,6 +172,43 @@ watch(
 )
 
 // helper functions
+function refreshReasonFilter() {
+	// Narrow the Reason dropdown to only the Attendance Request Types that
+	// actually match a real issue (late entry / early exit / missed punch /
+	// short hours / absent) on this employee's attendance for the selected
+	// date - avoids staff picking a type that's irrelevant to what's
+	// actually wrong, purely because it was the first option they
+	// recognized. Falls back to just active types when there isn't enough
+	// context yet (no date picked, or no issue found for that date).
+	const reason_field = formFields.data?.find((field) => field.fieldname === "reason")
+	if (!reason_field) return
+
+	const fallbackFilters = { is_active: 1 }
+	if (!attendanceRequest.value.employee || !attendanceRequest.value.from_date) {
+		reason_field.linkFilters = fallbackFilters
+		return
+	}
+
+	relevantTypes.submit(
+		{
+			employee: attendanceRequest.value.employee,
+			from_date: attendanceRequest.value.from_date,
+			to_date: attendanceRequest.value.to_date || attendanceRequest.value.from_date,
+		},
+		{
+			onSuccess(result) {
+				reason_field.linkFilters =
+					result && result.has_issue_data
+						? { name: ["in", result.types], is_active: 1 }
+						: fallbackFilters
+			},
+			onError() {
+				reason_field.linkFilters = fallbackFilters
+			},
+		}
+	)
+}
+
 function setFormReadOnly() {
 	formFields.data.map((field) => (field.read_only = true))
 }
