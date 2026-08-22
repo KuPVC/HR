@@ -202,8 +202,15 @@ function refreshReasonFilter() {
 		},
 		{
 			onSuccess(result) {
+				// Only narrow when there's actually something to narrow to -
+				// has_issue_data can be true (a real issue was found, e.g.
+				// Absent) while no Attendance Request Type has been
+				// configured to explain that specific issue yet. Falling
+				// back to the full list in that case is essential - showing
+				// an empty dropdown would block the employee from raising
+				// any request at all for that date.
 				reason_field.linkFilters =
-					result && result.has_issue_data
+					result && result.has_issue_data && result.types.length
 						? { name: ["in", result.types], is_active: 1 }
 						: fallbackFilters
 			},
