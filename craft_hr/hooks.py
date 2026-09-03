@@ -12,10 +12,9 @@ app_license = "MIT"
 app_home = "/ess"
 
 fixtures = [
-    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
-    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
-    {'dt':'Client Script', 'filters':[['module', 'in', {"Craft HR", "OT Mgmt"}]]},
-    {'dt':'Report', 'filters':[['name', 'in', {"Overtime Summary"}]]},
+    {'dt':'Custom Field', 'filters':[['module', 'in', {"Craft HR"}]]},
+    {'dt':'Property Setter', 'filters':[['module', 'in', {"Craft HR"}]]},
+    {'dt':'Client Script', 'filters':[['module', 'in', {"Craft HR"}]]},
     ]
 
 add_to_apps_screen = [
@@ -171,7 +170,6 @@ doc_events = {
         "validate": "craft_hr.events.leave_utils.update_leave_entitlement_on_save"
     },
     "Attendance":{
-        "on_submit": "craft_hr.events.attendance.on_submit",
         "on_cancel": "craft_hr.events.attendance.on_cancel"
     },
 	"Salary Slip": {
