@@ -703,6 +703,342 @@ def get_comments(reference_doctype: str, reference_name: str) -> list[dict]:
     )
 
 
+ATTENDANCE_DASHBOARD_ROLES = ["HR Manager", "IT Admin", "System Manager"]
+
+
+def has_attendance_dashboard_access() -> bool:
+    """Used as add_to_apps_screen's has_permission hook for the dashboard tile."""
+    return bool(set(frappe.get_roles()) & set(ATTENDANCE_DASHBOARD_ROLES))
+
+
+def assert_attendance_dashboard_access():
+    if not set(frappe.get_roles()) & set(ATTENDANCE_DASHBOARD_ROLES):
+        frappe.throw(
+            frappe._("Not permitted to view the attendance dashboard"),
+            frappe.PermissionError,
+        )
+
+
+@frappe.whitelist()
+def get_attendance_dashboard_companies() -> list[str]:
+    assert_attendance_dashboard_access()
+    return frappe.get_all("Company", pluck="name", order_by="name asc")
+
+
+@frappe.whitelist()
+def get_attendance_dashboard_data(
+    period: str = "Daily",
+    date: str | None = None,
+    company: str | None = None,
+    status: str | None = None,
+) -> dict:
+    """
+    Company-wide attendance report for the HR attendance dashboard: one row
+    per employee for the selected period, with status, short hours and leave
+    type (approved/pending), matching the "UAE Group HR Attendance
+    Dashboard" artifact this page was built to replicate inside the app.
+    """
+    assert_attendance_dashboard_access()
+
+    date = getdate(date) if date else getdate(nowdate())
+    if period == "Weekly":
+        from_date = add_days(date, -date.weekday())
+        to_date = add_days(from_date, 6)
+    elif period == "Monthly":
+        from_date = date.replace(day=1)
+        to_date = add_days(add_to_date(from_date, months=1), -1)
+    else:
+        from_date = to_date = date
+
+    employee_filters = {"status": "Active"}
+    if company:
+        employee_filters["company"] = company
+
+    employees = frappe.get_all(
+        "Employee",
+        filters=employee_filters,
+        fields=["name", "employee_name", "designation", "company"],
+        order_by="employee_name asc",
+    )
+    if not employees:
+        return {"from_date": from_date, "to_date": to_date, "rows": []}
+
+    employee_names = [e.name for e in employees]
+
+    attendance_meta = frappe.get_meta("Attendance")
+    has_short_hours = attendance_meta.has_field("custom_short_hours")
+
+    attendance_fields = ["employee", "attendance_date", "status"]
+    if has_short_hours:
+        attendance_fields.append("custom_short_hours")
+
+    attendance_records = frappe.get_all(
+        "Attendance",
+        filters={
+            "employee": ["in", employee_names],
+            "attendance_date": ["between", [from_date, to_date]],
+            "docstatus": 1,
+        },
+        fields=attendance_fields,
+    )
+
+    leave_records = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": ["in", employee_names],
+            "from_date": ["<=", to_date],
+            "to_date": [">=", from_date],
+            "docstatus": ["in", [0, 1]],
+            "status": ["in", ["Open", "Approved"]],
+        },
+        fields=["employee", "leave_type", "status"],
+    )
+    leave_by_employee = {}
+    for row in leave_records:
+        leave_by_employee.setdefault(row.employee, []).append(row)
+
+    by_employee = {}
+    for row in attendance_records:
+        bucket = by_employee.setdefault(
+            row.employee,
+            {"statuses": set(), "short_hours": 0},
+        )
+        bucket["statuses"].add(row.status)
+        if has_short_hours and cint(row.get("custom_short_hours")):
+            bucket["short_hours"] += 1
+
+    rows = []
+    for employee in employees:
+        bucket = by_employee.get(employee.name, {"statuses": set(), "short_hours": 0})
+        leaves = leave_by_employee.get(employee.name, [])
+
+        if leaves:
+            emp_status = "On Leave"
+        elif "Absent" in bucket["statuses"]:
+            emp_status = "Absent"
+        elif bucket["short_hours"]:
+            emp_status = "Short Hours"
+        elif bucket["statuses"]:
+            emp_status = "Present"
+        else:
+            emp_status = "No Record"
+
+        if status and status != "All" and emp_status != status:
+            continue
+
+        rows.append(
+            {
+                "employee": employee.name,
+                "employee_name": employee.employee_name,
+                "designation": employee.designation,
+                "company": employee.company,
+                "status": emp_status,
+                "short_hours": bucket["short_hours"],
+                "leave_type": leaves[0].leave_type if leaves else None,
+                "leave_status": leaves[0].status if leaves else None,
+            }
+        )
+
+    return {"from_date": from_date, "to_date": to_date, "rows": rows}
+
+
+import re
+
+STATUS_KEY = {
+    "Present": "present",
+    "Work From Home": "wfh",
+    "Half Day": "half_day",
+    "On Leave": "on_leave",
+    "Absent": "absent",
+    "Missed Punch": "missed_punch",
+}
+
+
+def _slugify(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+@frappe.whitelist()
+def get_attendance_dashboard_bundle(days: int = 200) -> dict:
+    """
+    Everything the HR attendance dashboard needs in one call: per-day
+    per-employee attendance (bucketed like the reference dashboard),
+    company roster/headcounts, leave applications, and holiday/weekly-off
+    context - mirrors the shape of the "UAE Group HR Attendance Dashboard"
+    artifact (attendance_days / meta/companies / meta/holidays /
+    meta/leave_applications), but pulled live from ERPNext instead of a
+    separately-synced database.
+    """
+    assert_attendance_dashboard_access()
+
+    days = cint(days) or 200
+    # Attendance for "today" isn't marked until end of day, so cap the
+    # window at yesterday to avoid showing a misleadingly empty/incomplete
+    # current day as if it were real data.
+    to_date = add_days(getdate(nowdate()), -1)
+    from_date = add_days(to_date, -days)
+
+    companies = frappe.get_all(
+        "Company",
+        fields=["name", "default_holiday_list"],
+        order_by="name asc",
+    )
+    company_by_name = {c.name: c for c in companies}
+
+    employees = frappe.get_all(
+        "Employee",
+        filters={"status": "Active"},
+        fields=["name", "employee_name", "designation", "company", "holiday_list"],
+    )
+    employee_by_id = {e.name: e for e in employees}
+    employee_ids = list(employee_by_id.keys())
+
+    active_by_company = {}
+    for e in employees:
+        active_by_company[e.company] = active_by_company.get(e.company, 0) + 1
+
+    company_slugs = {c.name: _slugify(c.name) for c in companies}
+    company_list_out = [
+        {
+            "company": c.name,
+            "slug": company_slugs[c.name],
+            "display_name": c.name,
+            "active_employees": active_by_company.get(c.name, 0),
+        }
+        for c in companies
+    ]
+
+    attendance = (
+        frappe.get_all(
+            "Attendance",
+            filters={
+                "employee": ["in", employee_ids],
+                "attendance_date": ["between", [from_date, to_date]],
+                "docstatus": 1,
+            },
+            fields=[
+                "employee", "attendance_date", "status",
+                "late_entry", "custom_missed_punch", "custom_short_hours", "custom_hours_difference",
+            ],
+        )
+        if employee_ids
+        else []
+    )
+    attendance_meta = frappe.get_meta("Attendance")
+    has_hours_field = attendance_meta.has_field("custom_hours_difference")
+    has_missed_punch_field = attendance_meta.has_field("custom_missed_punch")
+    has_short_hours_field = attendance_meta.has_field("custom_short_hours")
+    has_late_entry_field = attendance_meta.has_field("late_entry")
+
+    by_date = {}
+    for row in attendance:
+        emp = employee_by_id.get(row.employee)
+        if not emp:
+            continue
+
+        # An Attendance record only has a single check-in log (no check-out)
+        # gets auto-marked "Absent" by the checkin->attendance sync, same as
+        # a genuine no-show. custom_missed_punch distinguishes the two, so
+        # surface it as its own status instead of inflating the Absent count.
+        is_missed_punch = bool(has_missed_punch_field and row.get("custom_missed_punch"))
+        effective_status = "Missed Punch" if row.status == "Absent" and is_missed_punch else row.status
+
+        sk = STATUS_KEY.get(effective_status)
+        if not sk:
+            continue
+
+        date_key = str(row.attendance_date)
+        hours_short = flt(row.custom_hours_difference) if has_hours_field else 0
+        is_short_hours = bool(has_short_hours_field and row.get("custom_short_hours"))
+        by_date.setdefault(date_key, []).append(
+            {
+                "employee": row.employee,
+                "name": emp.employee_name,
+                "designation": emp.designation,
+                "company_slug": company_slugs.get(emp.company, _slugify(emp.company or "")),
+                "status": effective_status,
+                "late_entry": bool(has_late_entry_field and row.get("late_entry")),
+                "short_hours": is_short_hours,
+                "hours_short": abs(hours_short) if is_short_hours and hours_short else None,
+            }
+        )
+    attendance_days = [{"date": d, "employees": rows} for d, rows in sorted(by_date.items())]
+
+    leave_applications = (
+        frappe.get_all(
+            "Leave Application",
+            filters={
+                "employee": ["in", employee_ids],
+                "to_date": [">=", from_date],
+                "from_date": ["<=", to_date],
+                "docstatus": ["in", [0, 1]],
+                "status": ["in", ["Open", "Approved"]],
+            },
+            fields=["employee", "from_date", "to_date", "leave_type", "status", "half_day"],
+        )
+        if employee_ids
+        else []
+    )
+
+    holiday_lists = {c.default_holiday_list for c in companies if c.default_holiday_list}
+    holiday_lists |= {e.holiday_list for e in employees if e.holiday_list}
+    weekly_off_by_list = {}
+    named_holidays = []
+    if holiday_lists:
+        holiday_rows = frappe.get_all(
+            "Holiday",
+            filters={"parent": ["in", list(holiday_lists)]},
+            fields=["parent", "holiday_date", "weekly_off", "description"],
+        )
+        weekday_counts_by_list = {}
+        for row in holiday_rows:
+            if row.weekly_off:
+                dow = getdate(row.holiday_date).strftime("%A")
+                counts = weekday_counts_by_list.setdefault(row.parent, {})
+                counts[dow] = counts.get(dow, 0) + 1
+            elif from_date <= getdate(row.holiday_date) <= to_date:
+                named_holidays.append({"date": str(row.holiday_date), "name": row.description or "Holiday"})
+        for list_name, counts in weekday_counts_by_list.items():
+            weekly_off_by_list[list_name] = max(counts, key=counts.get)
+
+    company_holiday_list = {
+        company_slugs[c.name]: c.default_holiday_list for c in companies if c.default_holiday_list
+    }
+
+    roster = [
+        {
+            "employee": e.name,
+            "name": e.employee_name,
+            "designation": e.designation,
+            "company_slug": company_slugs.get(e.company, _slugify(e.company or "")),
+        }
+        for e in employees
+    ]
+
+    return {
+        "companies": company_list_out,
+        "employees": roster,
+        "attendance_days": attendance_days,
+        "leave_applications": [
+            {
+                "employee": row.employee,
+                "from_date": str(row.from_date),
+                "to_date": str(row.to_date),
+                "leave_type": row.leave_type,
+                "status": row.status,
+                "half_day": bool(row.half_day),
+            }
+            for row in leave_applications
+        ],
+        "holidays": {
+            "weekly_off_by_list": weekly_off_by_list,
+            "company_list": company_holiday_list,
+            "named": named_holidays,
+        },
+        "last_pull_at": frappe.utils.now_datetime().isoformat(),
+    }
+
+
 @frappe.whitelist()
 def get_my_assets() -> list[dict]:
     """

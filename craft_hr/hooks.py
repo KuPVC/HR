@@ -23,7 +23,19 @@ add_to_apps_screen = [
         "logo": "/assets/craft_hr/images/ess-logo.svg",
         "title": "Employee Self Service",
         "route": "/ess",
-    }
+    },
+    # get_apps() (the v16 /apps screen) iterates every entry in this list and
+    # applies each one's own has_permission hook - unlike
+    # boot.load_desktop_data, which only ever looks at add_to_apps_screen[0].
+    # That's what lets this be a second, separately-gated tile on the same
+    # app rather than replacing the ESS tile.
+    {
+        "name": "hr_attendance_dashboard",
+        "logo": "/assets/craft_hr/images/attendance-dashboard-logo.svg",
+        "title": "Attendance Dashboard",
+        "route": "/attendance-dashboard",
+        "has_permission": "craft_hr.api.has_attendance_dashboard_access",
+    },
 ]
 
 # Includes in <head>
@@ -65,6 +77,8 @@ doctype_js = {
 website_route_rules = [
     {"from_route": "/ess/<path:app_path>", "to_route": "ess"},
 ]
+# /attendance-dashboard needs no rule: www/attendance-dashboard.html already
+# resolves there directly.
 
 # Home Pages
 # ----------

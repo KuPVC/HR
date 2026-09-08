@@ -1,2 +1,3 @@
 craft_hr.patches.v1_0.fix_employee_self_service_icon
 craft_hr.patches.v1_0.remove_legacy_overtime
+craft_hr.patches.v1_0.create_attendance_dashboard_icon
