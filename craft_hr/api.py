@@ -858,6 +858,116 @@ def _slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
 
+def _get_roster_and_companies():
+    """Shared by get_attendance_dashboard_bundle and get_sick_leave_year_data."""
+    companies = frappe.get_all(
+        "Company",
+        fields=["name", "default_holiday_list"],
+        order_by="name asc",
+    )
+
+    employees = frappe.get_all(
+        "Employee",
+        filters={"status": "Active"},
+        fields=["name", "employee_name", "designation", "company", "holiday_list"],
+    )
+    employee_by_id = {e.name: e for e in employees}
+
+    active_by_company = {}
+    for e in employees:
+        active_by_company[e.company] = active_by_company.get(e.company, 0) + 1
+
+    company_slugs = {c.name: _slugify(c.name) for c in companies}
+    company_list_out = [
+        {
+            "company": c.name,
+            "slug": company_slugs[c.name],
+            "display_name": c.name,
+            "active_employees": active_by_company.get(c.name, 0),
+        }
+        for c in companies
+    ]
+
+    return companies, employee_by_id, company_slugs, company_list_out
+
+
+@frappe.whitelist()
+def get_sick_leave_year_data(
+    year: int | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+) -> dict:
+    """
+    Sick leave pattern data for either a single calendar year or an
+    explicit custom date range, independent of the attendance dashboard's
+    rolling ~200-day window - the pattern view needs a fixed period the
+    user can flip between years on (or pick exactly), not a moving
+    lookback window.
+
+    Pass either `year`, or both `from_date`/`to_date` - explicit dates take
+    precedence when given.
+    """
+    assert_attendance_dashboard_access()
+
+    today = getdate(nowdate())
+    if from_date and to_date:
+        from_date = str(getdate(from_date))
+        to_date = str(min(getdate(to_date), today))
+        year = None
+    else:
+        year = cint(year) or today.year
+        from_date = f"{year}-01-01"
+        to_date = f"{year}-12-31" if year < today.year else str(today)
+
+    _companies, employee_by_id, company_slugs, company_list_out = _get_roster_and_companies()
+    employee_ids = list(employee_by_id.keys())
+
+    leave_applications = (
+        frappe.get_all(
+            "Leave Application",
+            filters={
+                "employee": ["in", employee_ids],
+                "to_date": [">=", from_date],
+                "from_date": ["<=", to_date],
+                "docstatus": ["in", [0, 1]],
+                "status": ["in", ["Open", "Approved"]],
+            },
+            fields=["employee", "from_date", "to_date", "leave_type", "status", "half_day"],
+        )
+        if employee_ids
+        else []
+    )
+
+    roster = [
+        {
+            "employee": e.name,
+            "name": e.employee_name,
+            "designation": e.designation,
+            "company_slug": company_slugs.get(e.company, _slugify(e.company or "")),
+        }
+        for e in employee_by_id.values()
+    ]
+
+    return {
+        "year": year,
+        "from_date": from_date,
+        "to_date": to_date,
+        "companies": company_list_out,
+        "employees": roster,
+        "leave_applications": [
+            {
+                "employee": row.employee,
+                "from_date": str(row.from_date),
+                "to_date": str(row.to_date),
+                "leave_type": row.leave_type,
+                "status": row.status,
+                "half_day": bool(row.half_day),
+            }
+            for row in leave_applications
+        ],
+    }
+
+
 @frappe.whitelist()
 def get_attendance_dashboard_bundle(days: int = 200) -> dict:
     """
@@ -878,35 +988,8 @@ def get_attendance_dashboard_bundle(days: int = 200) -> dict:
     to_date = add_days(getdate(nowdate()), -1)
     from_date = add_days(to_date, -days)
 
-    companies = frappe.get_all(
-        "Company",
-        fields=["name", "default_holiday_list"],
-        order_by="name asc",
-    )
-    company_by_name = {c.name: c for c in companies}
-
-    employees = frappe.get_all(
-        "Employee",
-        filters={"status": "Active"},
-        fields=["name", "employee_name", "designation", "company", "holiday_list"],
-    )
-    employee_by_id = {e.name: e for e in employees}
+    companies, employee_by_id, company_slugs, company_list_out = _get_roster_and_companies()
     employee_ids = list(employee_by_id.keys())
-
-    active_by_company = {}
-    for e in employees:
-        active_by_company[e.company] = active_by_company.get(e.company, 0) + 1
-
-    company_slugs = {c.name: _slugify(c.name) for c in companies}
-    company_list_out = [
-        {
-            "company": c.name,
-            "slug": company_slugs[c.name],
-            "display_name": c.name,
-            "active_employees": active_by_company.get(c.name, 0),
-        }
-        for c in companies
-    ]
 
     attendance = (
         frappe.get_all(
@@ -981,7 +1064,7 @@ def get_attendance_dashboard_bundle(days: int = 200) -> dict:
     )
 
     holiday_lists = {c.default_holiday_list for c in companies if c.default_holiday_list}
-    holiday_lists |= {e.holiday_list for e in employees if e.holiday_list}
+    holiday_lists |= {e.holiday_list for e in employee_by_id.values() if e.holiday_list}
     weekly_off_by_list = {}
     named_holidays = []
     if holiday_lists:
@@ -1012,7 +1095,7 @@ def get_attendance_dashboard_bundle(days: int = 200) -> dict:
             "designation": e.designation,
             "company_slug": company_slugs.get(e.company, _slugify(e.company or "")),
         }
-        for e in employees
+        for e in employee_by_id.values()
     ]
 
     return {

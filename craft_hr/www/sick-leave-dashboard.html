@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Sick Leave Dashboard</title>
+		<meta name="theme-color" content="#fff" />
+		<link rel="icon" type="image/svg+xml" href="/assets/craft_hr/images/attendance-dashboard-logo.svg" />
+		<style>
+			@import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+
+			.att-root {
+				--font-display: 'Libre Franklin', system-ui, -apple-system, "Segoe UI", sans-serif;
+				--font-body: 'Source Sans 3', system-ui, -apple-system, "Segoe UI", sans-serif;
+				--font-chart: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+				--page: #f9f9f7;
+				--card: #fcfcfb;
+				--card-hover: #f4f3ef;
+				--ink: #0b0b0b;
+				--ink-secondary: #52514e;
+				--ink-muted: #898781;
+				--grid: #e1e0d9;
+				--axis: #c3c2b7;
+				--border: rgba(11,11,11,0.10);
+				--accent: #2a78d6;
+				--accent-ink: #ffffff;
+
+				--sick-single: #d0392f;
+				--sick-multi: #5b8ac9;
+
+				--good: #0ca30c;
+				--warn: #fab219;
+				--crit: #d03b3b;
+
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) .att-root {
+					--page: #0d0d0d; --card: #1a1a19; --card-hover: #212120; --ink: #ffffff;
+					--ink-secondary: #c3c2b7; --ink-muted: #898781; --grid: #2c2c2a; --axis: #383835;
+					--border: rgba(255,255,255,0.10); --accent: #3987e5;
+					color-scheme: dark;
+				}
+			}
+			:root[data-theme="dark"] .att-root {
+				--page: #0d0d0d; --card: #1a1a19; --card-hover: #212120; --ink: #ffffff;
+				--ink-secondary: #c3c2b7; --ink-muted: #898781; --grid: #2c2c2a; --axis: #383835;
+				--border: rgba(255,255,255,0.10); --accent: #3987e5;
+				color-scheme: dark;
+			}
+
+			html, body { margin: 0; background: #f9f9f7; }
+			.att-root { background: var(--page); color: var(--ink); font-family: var(--font-body); min-height: 100vh; padding: 28px 32px 64px; box-sizing: border-box; }
+			.att-root *, .att-root *::before, .att-root *::after { box-sizing: border-box; }
+			.att-root h1, .att-root h2, .att-root h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+
+			.att-shell { max-width: 1240px; margin: 0 auto; }
+
+			.att-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; flex-wrap: wrap; }
+			.att-back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none; margin-bottom: 10px; }
+			.att-back-link:hover { text-decoration: underline; }
+			.att-header-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+			.att-title { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+			.att-subtitle { font-size: 14px; color: var(--ink-secondary); margin-top: 4px; }
+
+			.att-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 20px; }
+			.att-seg { display: inline-flex; background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+			.att-seg button { font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-secondary); background: transparent; border: none; padding: 6px 13px; border-radius: 6px; cursor: pointer; }
+			.att-seg button.active { background: var(--accent); color: var(--accent-ink); }
+			.att-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+			.att-spacer { flex: 1 1 auto; }
+
+			.att-companyfilter { position: relative; }
+			.att-companyfilter-btn { font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+			.att-companyfilter-btn:hover { background: var(--card-hover); }
+			.att-companyfilter-btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+			.att-collapsible {
+				overflow: hidden; max-width: 260px; opacity: 1;
+				will-change: max-width, opacity;
+				transition: max-width .42s cubic-bezier(0.65,0,0.35,1), opacity .28s ease, margin .42s cubic-bezier(0.65,0,0.35,1);
+			}
+			.att-collapsible.att-collapsed { max-width: 0; opacity: 0; margin: 0; transition-duration: .38s, .18s, .38s; pointer-events: none; }
+
+			.att-daterange-fields {
+				display: inline-flex; align-items: center; gap: 10px;
+				overflow: hidden; max-width: 0; opacity: 0;
+				will-change: max-width, opacity;
+				transition: max-width .42s cubic-bezier(0.65,0,0.35,1) .05s, opacity .3s ease .18s, margin .42s cubic-bezier(0.65,0,0.35,1) .05s;
+			}
+			.att-daterange-fields.att-expanded {
+				max-width: 480px; opacity: 1; overflow: visible;
+				transition: max-width .42s cubic-bezier(0.65,0,0.35,1), opacity .35s ease .12s, margin .42s cubic-bezier(0.65,0,0.35,1), overflow 0s .42s;
+			}
+			.att-daterange-label { font-size: 13px; font-weight: 600; color: var(--ink-secondary); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+			.att-daterange-input {
+				font: inherit; font-size: 13px; background: var(--page); border: 1px solid var(--border);
+				border-radius: 8px; padding: 6px 10px; color: var(--ink); width: 116px; cursor: pointer;
+			}
+			.att-daterange-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+			/* Custom date picker: day / month / year drill-down panel */
+			.att-dp-wrap { position: relative; display: inline-block; }
+			.att-dp {
+				position: absolute; z-index: 300;
+				background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+				box-shadow: 0 12px 32px rgba(0,0,0,0.18); padding: 10px; width: 250px;
+				font-family: var(--font-chart, inherit); user-select: none;
+			}
+			.att-dp[hidden] { display: none; }
+			.att-dp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+			.att-dp-nav {
+				width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--page);
+				color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+			}
+			.att-dp-nav:hover:not(:disabled) { background: var(--card-hover); }
+			.att-dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+			.att-dp-label {
+				font-size: 13px; font-weight: 700; color: var(--ink); background: none; border: none; cursor: pointer;
+				padding: 4px 8px; border-radius: 6px;
+			}
+			.att-dp-label:hover { background: var(--card-hover); }
+			.att-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+			.att-dp-grid.att-dp-grid-3 { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+			.att-dp-weekday { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); text-align: center; padding: 4px 0; }
+			.att-dp-cell {
+				font-size: 12.5px; color: var(--ink); background: none; border: 1px solid transparent; border-radius: 6px;
+				padding: 6px 0; cursor: pointer; text-align: center;
+			}
+			.att-dp-cell.att-dp-month, .att-dp-cell.att-dp-year { padding: 10px 0; font-weight: 600; }
+			.att-dp-cell:hover:not(:disabled) { background: var(--card-hover); }
+			.att-dp-cell.att-dp-muted { color: var(--ink-muted); }
+			.att-dp-cell.att-dp-today { border-color: var(--accent); }
+			.att-dp-cell.att-dp-selected { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+			.att-dp-cell:disabled { color: var(--ink-muted); opacity: 0.35; cursor: not-allowed; }
+			.att-dp-footer { display: flex; justify-content: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+			.att-dp-today-btn { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--accent); background: none; border: none; cursor: pointer; padding: 4px 8px; }
+			.att-dp-today-btn:hover { text-decoration: underline; }
+			.att-companyfilter-panel { position: absolute; right: 0; top: calc(100% + 6px); background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-width: 280px; max-height: 320px; overflow-y: auto; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.16); }
+			.att-companyfilter-panel[hidden] { display: none; }
+			.att-companyfilter-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+			.att-companyfilter-row:hover { background: var(--card-hover); }
+			.att-companyfilter-row input { accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
+			.att-companyfilter-row span.name { flex: 1; }
+			.att-companyfilter-row span.count { color: var(--ink-muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+			.att-companyfilter-actions { display: flex; gap: 10px; padding: 6px 8px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+			.att-companyfilter-actions button { font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); background: none; border: none; cursor: pointer; padding: 4px 0; }
+
+			.att-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px 14px; margin-bottom: 18px; }
+			.att-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+			.att-card-title { font-family: var(--font-display); font-size: 15.5px; font-weight: 700; color: var(--ink); }
+			.att-card-note { font-size: 12px; color: var(--ink-muted); }
+
+			.att-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 2px 10px; font-family: var(--font-chart); }
+			.att-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-secondary); }
+			.att-legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+			.att-chart-wrap { position: relative; overflow-x: auto; }
+			.att-chart-wrap svg { font-family: var(--font-chart); display: block; }
+			.att-svg-axis-label { fill: var(--ink-muted); font-size: 10.5px; }
+			.att-svg-grid { stroke: var(--grid); stroke-width: 1; }
+			.att-svg-baseline { stroke: var(--axis); stroke-width: 1; }
+
+			.att-tooltip {
+				position: absolute; pointer-events: none; background: var(--ink); color: var(--page);
+				border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.5; z-index: 200;
+				box-shadow: 0 6px 18px rgba(0,0,0,0.25); opacity: 0; transition: opacity .08s ease; min-width: 150px;
+				font-family: var(--font-chart);
+			}
+			:root:not([data-theme="light"]) .att-tooltip { background: #ffffff; color: #0b0b0b; }
+			:root[data-theme="dark"] .att-tooltip { background: #ffffff; color: #0b0b0b; }
+			.att-tooltip.show { opacity: 1; }
+			.att-tooltip-date { font-weight: 700; margin-bottom: 4px; }
+			.att-tooltip-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+			.att-tooltip-row .k { display: flex; align-items: center; gap: 6px; opacity: 0.85; }
+			.att-tooltip-row .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+			.att-tooltip-row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+			tr.att-row-clickable { cursor: pointer; }
+
+			.att-modal-overlay {
+				position: fixed; inset: 0; background: rgba(11,11,11,0.55); z-index: 100;
+				display: flex; align-items: center; justify-content: center; padding: 32px;
+			}
+			.att-modal-overlay[hidden] { display: none; }
+			.att-modal {
+				background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+				width: 100%; max-width: 1100px; max-height: 90vh; overflow-y: auto;
+				padding: 24px 26px 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+			}
+			.att-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+			.att-modal-title { font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--ink); }
+			.att-modal-sub { font-size: 12.5px; color: var(--ink-muted); margin-top: 3px; }
+			.att-modal-close {
+				width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--page);
+				color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;
+			}
+			.att-modal-close:hover { background: var(--card-hover); }
+			.att-modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+			.att-table-scroll { overflow-x: auto; margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; }
+			table.att-table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-family: var(--font-chart); }
+			table.att-table th, table.att-table td { padding: 8px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border); }
+			table.att-table th:first-child, table.att-table td:first-child { text-align: left; }
+			table.att-table thead th { color: var(--ink-muted); font-weight: 700; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; background: var(--page); position: sticky; top: 0; }
+			table.att-table tbody tr:hover { background: var(--card-hover); }
+			table.att-table td { color: var(--ink); font-variant-numeric: tabular-nums; }
+			table.att-table td.name { font-variant-numeric: normal; color: var(--ink-secondary); font-weight: 600; }
+
+			.att-empty { padding: 40px 20px; text-align: center; color: var(--ink-muted); font-size: 14px; }
+			.att-footer-note { font-size: 12px; color: var(--ink-muted); text-align: center; margin-top: 26px; line-height: 1.6; }
+		</style>
+	</head>
+	<body>
+		<div class="att-root" id="attRoot">
+			<div class="att-shell">
+
+				<div class="att-header">
+					<div>
+						<a class="att-back-link" href="/attendance-dashboard">
+							<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg>
+							Back to Attendance Dashboard
+						</a>
+						<h1 class="att-title">Sick Leave Dashboard</h1>
+						<div class="att-subtitle" id="attSubtitle">Loading sick leave records&hellip;</div>
+					</div>
+				</div>
+
+				<div class="att-controls">
+					<div class="att-seg att-collapsible" id="attSickYear" role="tablist" aria-label="Sick leave year"></div>
+					<button class="att-companyfilter-btn" id="attCustomRangeBtn" type="button">Custom range</button>
+					<div class="att-daterange-fields" id="attDateRangeFields">
+						<span class="att-daterange-label">From
+							<span class="att-dp-wrap" id="attFromWrap">
+								<input type="text" id="attCustomFrom" class="att-daterange-input" placeholder="Select date" readonly>
+							</span>
+						</span>
+						<span class="att-daterange-label">To
+							<span class="att-dp-wrap" id="attToWrap">
+								<input type="text" id="attCustomTo" class="att-daterange-input" placeholder="Select date" readonly>
+							</span>
+						</span>
+					</div>
+					<div class="att-spacer"></div>
+					<div class="att-companyfilter">
+						<button class="att-companyfilter-btn" id="attCompanyBtn" type="button" aria-haspopup="true" aria-expanded="false">
+							<span id="attCompanyBtnLabel">Companies</span>
+							<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 6 4 4 4-4"/></svg>
+						</button>
+						<div class="att-companyfilter-panel" id="attCompanyPanel" hidden></div>
+					</div>
+				</div>
+				<div class="att-card-note" id="attCustomRangeError" style="color:var(--crit);margin:-12px 2px 12px;"></div>
+
+				<div class="att-card" id="attSickCard">
+					<div class="att-card-head">
+						<div>
+							<div class="att-card-title">Sick Leave Pattern</div>
+							<div class="att-card-note" id="attSickNote">Approved sick leave occurrences — single-day occurrences are a common early indicator of attendance issues, so they're tracked separately from multi-day sick leave.</div>
+						</div>
+					</div>
+					<div class="att-legend" id="attSickLegend"></div>
+					<div class="att-chart-wrap" id="attSickChartWrap"></div>
+				</div>
+
+				<h2 style="font-size:15px;font-weight:700;margin:2px 2px 12px;color:var(--ink-secondary);">Sick leave by company</h2>
+				<div class="att-table-scroll" id="attSickCompanyTableWrap"></div>
+
+				<h2 style="font-size:15px;font-weight:700;margin:22px 2px 12px;color:var(--ink-secondary);">Sick leave by employee</h2>
+				<div class="att-card-note" style="margin:-6px 2px 10px;">Sorted by single-day occurrences — employees with 3 or more single-day sick leaves within any 30-day window are flagged.</div>
+				<div class="att-table-scroll" id="attSickEmployeeTableWrap"></div>
+			</div>
+
+			<div class="att-tooltip" id="attTooltip" role="status"></div>
+
+			<div class="att-modal-overlay" id="attModalOverlay" hidden>
+				<div class="att-modal" id="attModal" role="dialog" aria-modal="true" aria-labelledby="attModalTitle">
+					<div class="att-modal-head">
+						<div>
+							<div class="att-modal-title" id="attModalTitle"></div>
+							<div class="att-modal-sub" id="attModalSub"></div>
+						</div>
+						<button class="att-modal-close" id="attModalClose" type="button" aria-label="Close">
+							<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l10 10M13 3 3 13"/></svg>
+						</button>
+					</div>
+					<div class="att-table-scroll" id="attModalTableWrap"></div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			window.csrf_token = "{{ csrf_token }}";
+			window.site_name = "{{ site_name }}";
+		</script>
+
+		{% raw %}
+		<script>
+		(function () {
+			"use strict";
+
+			var SICK_STATUS = [
+				{ key: "single_day", label: "Single-day", var: "--sick-single" },
+				{ key: "multi_day",  label: "Multi-day",  var: "--sick-multi" }
+			];
+			var DAY_MS = 86400000;
+
+			var els = {
+				subtitle: document.getElementById("attSubtitle"),
+				sickYear: document.getElementById("attSickYear"),
+				sickNote: document.getElementById("attSickNote"),
+				sickLegend: document.getElementById("attSickLegend"),
+				sickChartWrap: document.getElementById("attSickChartWrap"),
+				sickCompanyTableWrap: document.getElementById("attSickCompanyTableWrap"),
+				sickEmployeeTableWrap: document.getElementById("attSickEmployeeTableWrap"),
+				companyBtn: document.getElementById("attCompanyBtn"),
+				companyBtnLabel: document.getElementById("attCompanyBtnLabel"),
+				companyPanel: document.getElementById("attCompanyPanel"),
+				tooltip: document.getElementById("attTooltip"),
+				modalOverlay: document.getElementById("attModalOverlay"),
+				modalTitle: document.getElementById("attModalTitle"),
+				modalSub: document.getElementById("attModalSub"),
+				modalClose: document.getElementById("attModalClose"),
+				modalTableWrap: document.getElementById("attModalTableWrap"),
+				customRangeBtn: document.getElementById("attCustomRangeBtn"),
+				dateRangeFields: document.getElementById("attDateRangeFields"),
+				customFrom: document.getElementById("attCustomFrom"),
+				customTo: document.getElementById("attCustomTo"),
+				customRangeError: document.getElementById("attCustomRangeError")
+			};
+
+			var state = {
+				mode: "year", // "year" | "custom"
+				sickYear: new Date().getUTCFullYear(),
+				sickFrom: null,
+				sickTo: null,
+				sickLeaves: [],
+				companies: [],
+				companiesBySlug: {},
+				selected: new Set(),
+				loading: false
+			};
+
+			function parseDate(s) { var p = s.split("-"); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); }
+			function addDays(d, n) { return new Date(d.getTime() + n * DAY_MS); }
+			function addMonths(d, n) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1)); }
+			var MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+			function fmtDay(d) { return MONTH_ABBR[d.getUTCMonth()] + " " + d.getUTCDate(); }
+			function fmtDayYear(d) { return MONTH_ABBR[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear(); }
+			function fmtMonthYear(d) { return MONTH_ABBR[d.getUTCMonth()] + " " + d.getUTCFullYear(); }
+
+			async function callMethod(method, args) {
+				var res = await fetch("/api/method/" + method, {
+					method: "POST",
+					headers: { "Content-Type": "application/json", "X-Frappe-CSRF-Token": window.csrf_token },
+					body: JSON.stringify(args || {}),
+				});
+				if (!res.ok) {
+					var body = await res.json().catch(function () { return {}; });
+					throw new Error(body.exception || body._server_messages || res.statusText);
+				}
+				var data = await res.json();
+				return data.message;
+			}
+
+			function buildSickLeaveEpisodes(leaveApplications, employeeMeta) {
+				var byEmployee = {};
+				(leaveApplications || []).forEach(function (a) {
+					if (!a.employee || a.status !== "Approved") return;
+					if (!byEmployee[a.employee]) byEmployee[a.employee] = [];
+					byEmployee[a.employee].push({
+						from: a.from_date, to: a.to_date,
+						fromDate: parseDate(a.from_date), toDate: parseDate(a.to_date),
+						leave_type: a.leave_type, is_sick: /sick/i.test(a.leave_type || ""),
+					});
+				});
+
+				var episodes = [];
+				Object.keys(byEmployee).forEach(function (employee) {
+					var apps = byEmployee[employee].sort(function (a, b) { return a.fromDate - b.fromDate; });
+					var meta = employeeMeta[employee] || {};
+					var current = null;
+					apps.forEach(function (a) {
+						if (current && a.fromDate <= addDays(current.toDate, 1)) {
+							if (a.toDate > current.toDate) current.toDate = a.toDate;
+							current.apps.push(a);
+						} else {
+							current = { employee: employee, name: meta.name || employee, company_slug: meta.company_slug, apps: [a], toDate: a.toDate };
+							episodes.push(current);
+						}
+					});
+				});
+
+				return episodes
+					.filter(function (ep) { return ep.apps.some(function (a) { return a.is_sick; }); })
+					.map(function (ep) {
+						var fromDate = ep.apps[0].fromDate;
+						var toDate = ep.toDate;
+						ep.apps.forEach(function (a) { if (a.fromDate < fromDate) fromDate = a.fromDate; });
+						var spanDays = Math.round((toDate - fromDate) / DAY_MS) + 1;
+						var sickDays = 0;
+						ep.apps.forEach(function (a) { if (a.is_sick) sickDays += Math.round((a.toDate - a.fromDate) / DAY_MS) + 1; });
+						return {
+							employee: ep.employee, name: ep.name, company_slug: ep.company_slug,
+							from: fmtISO(fromDate), to: fmtISO(toDate), fromDate: fromDate,
+							days: sickDays, single: spanDays <= 1,
+							mixed_types: ep.apps.length > 1 && !ep.apps.every(function (a) { return a.is_sick; }),
+						};
+					});
+			}
+			function fmtISO(d) {
+				return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+			}
+
+			function getSickMonthBuckets() {
+				var buckets = [];
+				if (state.mode === "custom" && state.sickFrom && state.sickTo) {
+					var cursor = new Date(Date.UTC(state.sickFrom.getUTCFullYear(), state.sickFrom.getUTCMonth(), 1));
+					var last = new Date(Date.UTC(state.sickTo.getUTCFullYear(), state.sickTo.getUTCMonth(), 1));
+					while (cursor <= last) {
+						var monthEnd = addDays(addMonths(cursor, 1), -1);
+						buckets.push({
+							start: cursor < state.sickFrom ? state.sickFrom : cursor,
+							end: monthEnd > state.sickTo ? state.sickTo : monthEnd,
+							label: MONTH_ABBR[cursor.getUTCMonth()], fullLabel: fmtMonthYear(cursor)
+						});
+						cursor = addMonths(cursor, 1);
+					}
+					return buckets;
+				}
+				var year = state.sickYear;
+				var today = new Date();
+				var lastMonth = year === today.getUTCFullYear() ? today.getUTCMonth() : 11;
+				for (var m = 0; m <= lastMonth; m++) {
+					var c = new Date(Date.UTC(year, m, 1));
+					var me = addDays(addMonths(c, 1), -1);
+					buckets.push({ start: c, end: me, label: MONTH_ABBR[m], fullLabel: fmtMonthYear(c) });
+				}
+				return buckets;
+			}
+
+			function buildYearToggle() {
+				var currentYear = new Date().getUTCFullYear();
+				var years = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+				els.sickYear.innerHTML = "";
+				years.forEach(function (y) {
+					var btn = document.createElement("button");
+					btn.type = "button";
+					btn.textContent = String(y);
+					btn.setAttribute("role", "tab");
+					if (y === state.sickYear) { btn.className = "active"; btn.setAttribute("aria-selected", "true"); }
+					else { btn.setAttribute("aria-selected", "false"); }
+					btn.addEventListener("click", function () {
+						if ((state.mode === "year" && state.sickYear === y) || state.loading) return;
+						state.mode = "year";
+						state.sickYear = y;
+						els.dateRangeFields.classList.remove("att-expanded");
+						els.sickYear.classList.remove("att-collapsed");
+						els.customRangeBtn.classList.remove("active");
+						Array.prototype.forEach.call(els.sickYear.querySelectorAll("button"), function (b) {
+							b.classList.remove("active"); b.setAttribute("aria-selected", "false");
+						});
+						btn.classList.add("active"); btn.setAttribute("aria-selected", "true");
+						loadSickData({ year: y });
+					});
+					els.sickYear.appendChild(btn);
+				});
+			}
+
+			function buildCompanyFilterPanel() {
+				els.companyPanel.innerHTML = "";
+				state.companies.forEach(function (c) {
+					var row = document.createElement("label");
+					row.className = "att-companyfilter-row";
+					var cb = document.createElement("input");
+					cb.type = "checkbox";
+					cb.checked = state.selected.has(c.slug);
+					cb.addEventListener("change", function () {
+						if (cb.checked) state.selected.add(c.slug); else state.selected.delete(c.slug);
+						renderSickLeavePatterns();
+						updateCompanyBtnLabel();
+					});
+					var name = document.createElement("span"); name.className = "name"; name.textContent = c.name;
+					var count = document.createElement("span"); count.className = "count"; count.textContent = c.active_employees + " active";
+					row.appendChild(cb); row.appendChild(name); row.appendChild(count);
+					els.companyPanel.appendChild(row);
+				});
+				var actions = document.createElement("div");
+				actions.className = "att-companyfilter-actions";
+				var allBtn = document.createElement("button"); allBtn.type = "button"; allBtn.textContent = "Select all";
+				allBtn.addEventListener("click", function () {
+					state.companies.forEach(function (c) { state.selected.add(c.slug); });
+					buildCompanyFilterPanel(); renderSickLeavePatterns();
+				});
+				var noneBtn = document.createElement("button"); noneBtn.type = "button"; noneBtn.textContent = "Clear";
+				noneBtn.addEventListener("click", function () {
+					state.selected.clear();
+					buildCompanyFilterPanel(); renderSickLeavePatterns();
+				});
+				actions.appendChild(allBtn); actions.appendChild(noneBtn);
+				els.companyPanel.appendChild(actions);
+				updateCompanyBtnLabel();
+			}
+			function updateCompanyBtnLabel() {
+				var n = state.selected.size, total = state.companies.length;
+				els.companyBtnLabel.textContent = n === total ? "All companies (" + total + ")" : n + " of " + total + " companies";
+			}
+
+			async function loadSickData(args) {
+				state.loading = true;
+				els.sickChartWrap.innerHTML = '<div class="att-empty">Loading…</div>';
+				els.sickCompanyTableWrap.innerHTML = "";
+				els.sickEmployeeTableWrap.innerHTML = "";
+				try {
+					var data = await callMethod("craft_hr.api.get_sick_leave_year_data", args);
+					var employeeMeta = {};
+					(data.employees || []).forEach(function (e) { employeeMeta[e.employee] = e; });
+
+					state.companies = (data.companies || [])
+						.filter(function (c) { return c.active_employees > 0; })
+						.map(function (c) {
+							return { company: c.company, slug: c.slug, name: c.display_name || c.company, active_employees: c.active_employees };
+						});
+					var isFirstLoad = Object.keys(state.companiesBySlug).length === 0;
+					state.companiesBySlug = {};
+					state.companies.forEach(function (c) { state.companiesBySlug[c.slug] = c; });
+					if (isFirstLoad) state.companies.forEach(function (c) { state.selected.add(c.slug); });
+
+					state.sickFrom = parseDate(data.from_date);
+					state.sickTo = parseDate(data.to_date);
+					state.sickLeaves = buildSickLeaveEpisodes(data.leave_applications || [], employeeMeta);
+					buildCompanyFilterPanel();
+					var rangeLabel = state.mode === "custom"
+						? fmtDayYear(state.sickFrom) + " – " + fmtDayYear(state.sickTo)
+						: String(state.sickYear);
+					els.subtitle.textContent = state.companies.length + " companies · " + state.sickLeaves.length + " sick leave occurrences, " + rangeLabel;
+					renderSickLeavePatterns();
+				} catch (err) {
+					console.error("sick leave load error", err);
+					els.sickChartWrap.innerHTML = '<div class="att-empty">Couldn\'t load sick leave data (' + (err && err.message || "error") + ').</div>';
+				} finally {
+					state.loading = false;
+				}
+			}
+
+			function renderSickLeavePatterns() {
+				var sickLeaves = (state.sickLeaves || []).filter(function (s) { return state.selected.has(s.company_slug); });
+
+				var periodLabel = state.mode === "custom" && state.sickFrom && state.sickTo
+					? fmtDayYear(state.sickFrom) + " – " + fmtDayYear(state.sickTo)
+					: "for " + state.sickYear;
+				els.sickNote.textContent = "Approved sick leave occurrences " + periodLabel +
+					" — single-day occurrences are a common early indicator of attendance issues, so they're tracked separately from multi-day sick leave.";
+
+				var buckets = getSickMonthBuckets();
+				buckets.forEach(function (b) {
+					var counts = { single_day: 0, multi_day: 0, total: 0 };
+					sickLeaves.forEach(function (s) {
+						if (s.fromDate < b.start || s.fromDate > b.end) return;
+						counts[s.single ? "single_day" : "multi_day"]++;
+						counts.total++;
+					});
+					b.totals = counts;
+				});
+
+				buildSickLegend();
+				drawLineChart(els.sickChartWrap, buckets, function (b) { return b.totals; }, {
+					height: 220, statuses: SICK_STATUS, clickable: true,
+					buildUrl: function (b) {
+						return buildLeaveListUrl(
+							b.start, b.end,
+							state.companies.filter(function (c) { return state.selected.has(c.slug); }).map(function (c) { return c.company; })
+						);
+					}
+				});
+
+				renderSickCompanyTable(sickLeaves);
+				renderSickEmployeeTable(sickLeaves);
+			}
+
+			function buildSickLegend() {
+				els.sickLegend.innerHTML = "";
+				SICK_STATUS.forEach(function (s) {
+					var item = document.createElement("span");
+					item.className = "att-legend-item";
+					item.innerHTML = '<span class="att-legend-swatch" style="background:var(' + s.var + ')"></span><span>' + s.label + '</span>';
+					els.sickLegend.appendChild(item);
+				});
+			}
+
+			function renderSickCompanyTable(sickLeaves) {
+				if (!sickLeaves.length) {
+					els.sickCompanyTableWrap.innerHTML = '<div class="att-empty">No approved sick leave in this year.</div>';
+					return;
+				}
+				var byCompany = {};
+				sickLeaves.forEach(function (s) {
+					if (!byCompany[s.company_slug]) byCompany[s.company_slug] = { single: 0, multi: 0, days: 0, employees: {} };
+					var bucket = byCompany[s.company_slug];
+					bucket[s.single ? "single" : "multi"]++;
+					bucket.days += s.days;
+					bucket.employees[s.employee] = true;
+				});
+				var rows = Object.keys(byCompany).map(function (slug) {
+					var c = state.companiesBySlug[slug];
+					var b = byCompany[slug];
+					return { slug: slug, name: c ? c.name : slug, single: b.single, multi: b.multi, total: b.single + b.multi, days: b.days, employees: Object.keys(b.employees).length };
+				}).sort(function (a, b) { return b.single - a.single || b.total - a.total; });
+
+				var html = '<table class="att-table"><thead><tr><th>Company</th><th>Employees affected</th><th>Single-day</th><th>Multi-day</th><th>Total occurrences</th><th>Total sick days</th></tr></thead><tbody>';
+				rows.forEach(function (r) {
+					html += "<tr class=\"att-row-clickable\" data-slug=\"" + escapeHtml(r.slug) + "\"><td class=\"name\">" + escapeHtml(r.name) + "</td><td>" + r.employees + "</td>" +
+						"<td style=\"color:var(--sick-single);font-weight:700\">" + r.single + "</td><td>" + r.multi + "</td><td>" + r.total + "</td><td>" + r.days + "</td></tr>";
+				});
+				html += "</tbody></table>";
+				els.sickCompanyTableWrap.innerHTML = html;
+			}
+
+			var SICK_CLUSTER_WINDOW_DAYS = 30;
+			var SICK_CLUSTER_MIN_COUNT = 3;
+			function hasCloseProximityCluster(dates, windowDays, minCount) {
+				if (dates.length < minCount) return false;
+				var sorted = dates.slice().sort(function (a, b) { return a - b; });
+				var left = 0;
+				for (var right = 0; right < sorted.length; right++) {
+					while (sorted[right] - sorted[left] > windowDays * DAY_MS) left++;
+					if (right - left + 1 >= minCount) return true;
+				}
+				return false;
+			}
+
+			function renderSickEmployeeTable(sickLeaves) {
+				if (!sickLeaves.length) {
+					els.sickEmployeeTableWrap.innerHTML = '<div class="att-empty">No approved sick leave in this year.</div>';
+					return;
+				}
+				var byEmployee = {};
+				sickLeaves.forEach(function (s) {
+					if (!byEmployee[s.employee]) byEmployee[s.employee] = { employee: s.employee, name: s.name, company_slug: s.company_slug, single: 0, multi: 0, days: 0, last: s.from, singleDates: [] };
+					var bucket = byEmployee[s.employee];
+					bucket[s.single ? "single" : "multi"]++;
+					bucket.days += s.days;
+					if (s.single) bucket.singleDates.push(s.fromDate);
+					if (s.from > bucket.last) bucket.last = s.from;
+				});
+				var rows = Object.values(byEmployee).sort(function (a, b) {
+					return b.single - a.single || (b.single + b.multi) - (a.single + a.multi);
+				});
+
+				var html = '<table class="att-table"><thead><tr><th>Employee</th><th>Company</th><th>Single-day</th><th>Multi-day</th><th>Total occurrences</th><th>Total sick days</th><th>Last sick leave</th></tr></thead><tbody>';
+				rows.forEach(function (r) {
+					var company = (state.companiesBySlug[r.company_slug] || {}).name || r.company_slug;
+					var watch = hasCloseProximityCluster(r.singleDates, SICK_CLUSTER_WINDOW_DAYS, SICK_CLUSTER_MIN_COUNT);
+					html += "<tr class=\"att-row-clickable\" data-employee=\"" + escapeHtml(r.employee) + "\"><td class=\"name\">" + escapeHtml(r.name) + "</td><td class=\"name\">" + escapeHtml(company) + "</td>" +
+						"<td style=\"color:" + (watch ? "var(--crit)" : "var(--sick-single)") + ";font-weight:700\">" + r.single + (watch ? ' <span style="font-weight:600;font-size:11px" title="More than 2 single-day sick leaves within a month">⚠ watch</span>' : "") + "</td>" +
+						"<td>" + r.multi + "</td><td>" + (r.single + r.multi) + "</td><td>" + r.days + "</td><td>" + escapeHtml(r.last) + "</td></tr>";
+				});
+				html += "</tbody></table>";
+				els.sickEmployeeTableWrap.innerHTML = html;
+			}
+
+			function sickEpisodeRowsHtml(episodes, opts) {
+				opts = opts || {};
+				var showEmployee = !!opts.showEmployee;
+				var html = '<table class="att-table"><thead><tr>' +
+					(showEmployee ? "<th>Employee</th>" : "") +
+					"<th>Dates</th><th>Days</th><th>Type</th><th>Sick days</th></tr></thead><tbody>";
+				episodes.forEach(function (ep) {
+					var dateRange = ep.from === ep.to ? fmtDayYear(parseDate(ep.from)) : fmtDay(parseDate(ep.from)) + " – " + fmtDayYear(parseDate(ep.to));
+					var spanDays = Math.round((parseDate(ep.to) - parseDate(ep.from)) / DAY_MS) + 1;
+					var typeLabel = ep.single ? "Single-day" : "Multi-day";
+					if (ep.mixed_types) typeLabel += " (mixed leave types)";
+					html += "<tr>" + (showEmployee ? '<td class="name">' + escapeHtml(ep.name) + "</td>" : "") +
+						"<td>" + escapeHtml(dateRange) + "</td><td>" + spanDays + "</td>" +
+						"<td style=\"color:" + (ep.single ? "var(--sick-single)" : "var(--sick-multi)") + ";font-weight:600\">" + typeLabel + "</td>" +
+						"<td>" + ep.days + "</td></tr>";
+				});
+				html += "</tbody></table>";
+				return html;
+			}
+
+			function openSickCompanyDetail(slug) {
+				var company = state.companiesBySlug[slug];
+				var episodes = (state.sickLeaves || []).filter(function (s) { return s.company_slug === slug; })
+					.sort(function (a, b) { return b.from < a.from ? -1 : b.from > a.from ? 1 : 0; });
+				openTableModal(
+					company ? company.name : slug,
+					episodes.length + " sick leave occurrence" + (episodes.length === 1 ? "" : "s"),
+					sickEpisodeRowsHtml(episodes, { showEmployee: true })
+				);
+			}
+			function openSickEmployeeDetail(employee) {
+				var episodes = (state.sickLeaves || []).filter(function (s) { return s.employee === employee; })
+					.sort(function (a, b) { return b.from < a.from ? -1 : b.from > a.from ? 1 : 0; });
+				var name = episodes.length ? episodes[0].name : employee;
+				openTableModal(
+					name,
+					episodes.length + " sick leave occurrence" + (episodes.length === 1 ? "" : "s"),
+					sickEpisodeRowsHtml(episodes, { showEmployee: false })
+				);
+			}
+
+			function openTableModal(title, sub, tableHtml) {
+				els.modalTitle.textContent = title;
+				els.modalSub.textContent = sub;
+				els.modalTableWrap.innerHTML = tableHtml;
+				els.modalOverlay.hidden = false;
+				document.body.style.overflow = "hidden";
+				els.modalClose.focus();
+			}
+			function closeModal() {
+				els.modalOverlay.hidden = true;
+				document.body.style.overflow = "";
+				els.modalTableWrap.innerHTML = "";
+			}
+
+			function buildLeaveListUrl(fromDate, toDate, companyNames) {
+				var filters = {
+					from_date: ["between", [fmtISO(fromDate), fmtISO(toDate)]],
+					leave_type: ["like", "%Sick%"],
+				};
+				if (companyNames && companyNames.length === 1) filters.company = companyNames[0];
+				else if (companyNames && companyNames.length > 1) filters.company = ["in", companyNames];
+				var qs = Object.keys(filters).map(function (k) {
+					return encodeURIComponent(k) + "=" + encodeURIComponent(JSON.stringify(filters[k]));
+				}).join("&");
+				return "/app/leave-application?" + qs;
+			}
+
+			function svgEl(tag, attrs) {
+				var el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+				for (var k in attrs) el.setAttribute(k, attrs[k]);
+				return el;
+			}
+			function niceCeil(v) {
+				var mag = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+				var norm = v / mag;
+				var nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+				return nice * mag;
+			}
+
+			function drawLineChart(container, buckets, valueFn, opts) {
+				container.innerHTML = "";
+				if (!buckets.length) { container.innerHTML = '<div class="att-empty">No data in this window.</div>'; return; }
+
+				var statuses = opts.statuses;
+				var height = opts.height || 220;
+				var padLeft = 38, padRight = 16, padTop = 12, padBottom = 22;
+				var width = Math.max(container.clientWidth || 560, buckets.length * 60);
+				var plotW = width - padLeft - padRight;
+				var plotH = height - padTop - padBottom;
+
+				var maxTotal = 0;
+				buckets.forEach(function (b) {
+					var vals = valueFn(b);
+					statuses.forEach(function (s) { maxTotal = Math.max(maxTotal, vals[s.key] || 0); });
+				});
+				if (maxTotal <= 0) maxTotal = 1;
+				var niceMax = niceCeil(maxTotal);
+
+				var svg = svgEl("svg", { width: width, height: height, viewBox: "0 0 " + width + " " + height, role: "img", "aria-label": "Sick leave trend line chart" });
+
+				var steps = 4;
+				for (var i = 0; i <= steps; i++) {
+					var gy = padTop + plotH - (plotH * i / steps);
+					svg.appendChild(svgEl("line", { class: "att-svg-grid", x1: padLeft, x2: width - padRight, y1: gy, y2: gy }));
+					var lbl = svgEl("text", { class: "att-svg-axis-label", x: padLeft - 6, y: gy + 3, "text-anchor": "end" });
+					lbl.textContent = Math.round(niceMax * i / steps);
+					svg.appendChild(lbl);
+				}
+				svg.appendChild(svgEl("line", { class: "att-svg-baseline", x1: padLeft, x2: width - padRight, y1: padTop + plotH, y2: padTop + plotH }));
+
+				var n = buckets.length;
+				var slotW = plotW / n;
+				var points = buckets.map(function (b, idx) { return padLeft + slotW * idx + slotW / 2; });
+
+				statuses.forEach(function (s) {
+					var d = "";
+					buckets.forEach(function (b, idx) {
+						var v = valueFn(b)[s.key] || 0;
+						var x = points[idx];
+						var y = padTop + plotH - (v / niceMax) * plotH;
+						d += (idx === 0 ? "M" : "L") + x + "," + y + " ";
+					});
+					svg.appendChild(svgEl("path", { d: d.trim(), fill: "none", stroke: "var(" + s.var + ")", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+					buckets.forEach(function (b, idx) {
+						var v = valueFn(b)[s.key] || 0;
+						var y = padTop + plotH - (v / niceMax) * plotH;
+						svg.appendChild(svgEl("circle", { cx: points[idx], cy: y, r: 3.5, fill: "var(" + s.var + ")", "pointer-events": "none" }));
+					});
+				});
+
+				buckets.forEach(function (b, idx) {
+					var cx = points[idx];
+					var slotX = cx - slotW / 2;
+					var vals = valueFn(b);
+
+					var hit = svgEl("rect", { x: slotX, y: padTop, width: slotW, height: plotH, fill: "transparent" });
+					hit.style.cursor = "pointer";
+					svg.appendChild(hit);
+
+					var hoverRect = svgEl("rect", { x: slotX, y: padTop, width: slotW, height: plotH, fill: "var(--accent)", opacity: 0, "pointer-events": "none" });
+					hoverRect.style.transition = "opacity .08s ease";
+					svg.insertBefore(hoverRect, svg.firstChild.nextSibling);
+
+					var xl = svgEl("text", { class: "att-svg-axis-label", x: cx, y: height - 5, "text-anchor": "middle" });
+					xl.textContent = b.label;
+					svg.appendChild(xl);
+
+					hit.addEventListener("pointerenter", function () { showTooltip(b, vals, statuses); positionTooltip(hit, container); hoverRect.setAttribute("opacity", 0.07); });
+					hit.addEventListener("pointermove", function () { positionTooltip(hit, container); });
+					hit.addEventListener("pointerleave", function () { hideTooltip(); hoverRect.setAttribute("opacity", 0); });
+					hit.addEventListener("focus", function () { showTooltip(b, vals, statuses); positionTooltip(hit, container); hoverRect.setAttribute("opacity", 0.07); });
+					hit.addEventListener("blur", function () { hideTooltip(); hoverRect.setAttribute("opacity", 0); });
+					hit.setAttribute("tabindex", "0");
+
+					if (opts.clickable) {
+						hit.setAttribute("role", "link");
+						hit.setAttribute("aria-label", "Open list for " + b.fullLabel);
+						var go = function () { window.open(opts.buildUrl(b), "_blank"); };
+						hit.addEventListener("click", go);
+						hit.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } });
+					}
+				});
+
+				container.appendChild(svg);
+			}
+
+			function showTooltip(bucket, vals, statuses) {
+				var rows = statuses.map(function (s) {
+					return '<div class="att-tooltip-row"><span class="k"><span class="swatch" style="background:var(' + s.var + ')"></span>' + s.label + '</span><span class="v">' + (vals[s.key] || 0) + '</span></div>';
+				}).join("");
+				els.tooltip.innerHTML = '<div class="att-tooltip-date">' + bucket.fullLabel + '</div>' + rows +
+					'<div class="att-tooltip-row" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(128,128,128,0.3)"><span class="k">Total</span><span class="v">' + (vals.total || 0) + '</span></div>';
+				els.tooltip.classList.add("show");
+			}
+			function hideTooltip() { els.tooltip.classList.remove("show"); }
+			function positionTooltip(hitEl, container) {
+				var hitBox = hitEl.getBoundingClientRect();
+				var rootBox = document.getElementById("attRoot").getBoundingClientRect();
+				var left = hitBox.left - rootBox.left + hitBox.width / 2;
+				var top = hitBox.top - rootBox.top;
+				els.tooltip.style.left = left + "px";
+				els.tooltip.style.top = Math.max(0, top - 8) + "px";
+				els.tooltip.style.transform = "translate(-50%, -100%)";
+			}
+
+			function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+			function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+
+			var DP_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+			var DP_YEARS_PER_PAGE = 12;
+
+			// Custom day/month/year drill-down date picker (no external library),
+			// so the header label itself switches views - click the month/year
+			// name to jump straight to picking a month or a year, with
+			// left/right (buttons or arrow keys) paging whichever view is open.
+			function createDatePicker(wrapEl, inputEl, opts) {
+				opts = opts || {};
+				var today = parseDate(fmtISO(new Date()));
+
+				var dp = {
+					open: false,
+					view: "days", // days | months | years
+					cursorYear: today.getUTCFullYear(),
+					cursorMonth: today.getUTCMonth(),
+					yearPageStart: Math.floor(today.getUTCFullYear() / DP_YEARS_PER_PAGE) * DP_YEARS_PER_PAGE,
+					selected: null,
+					min: opts.min || null,
+					max: opts.max || null,
+				};
+
+				var panel = document.createElement("div");
+				panel.className = "att-dp";
+				panel.hidden = true;
+				panel.setAttribute("role", "dialog");
+				// Appended to the page root (not wrapEl) so it can't get trapped
+				// inside an ancestor's stacking context - .att-daterange-fields
+				// animates opacity, which creates one, and would otherwise pin
+				// this popup below later, unrelated content like the chart card
+				// regardless of z-index.
+				document.getElementById("attRoot").appendChild(panel);
+				panel.style.position = "absolute";
+
+				function positionPanel() {
+					var inputBox = inputEl.getBoundingClientRect();
+					var rootBox = document.getElementById("attRoot").getBoundingClientRect();
+					panel.style.left = (inputBox.left - rootBox.left) + "px";
+					panel.style.top = (inputBox.bottom - rootBox.top + 6) + "px";
+				}
+
+				function inRange(d) {
+					if (dp.min && d < dp.min) return false;
+					if (dp.max && d > dp.max) return false;
+					return true;
+				}
+				function monthInRange(year, month) {
+					var start = new Date(Date.UTC(year, month, 1));
+					var end = new Date(Date.UTC(year, month + 1, 0));
+					if (dp.max && start > dp.max) return false;
+					if (dp.min && end < dp.min) return false;
+					return true;
+				}
+				function yearInRange(year) {
+					var start = new Date(Date.UTC(year, 0, 1));
+					var end = new Date(Date.UTC(year, 11, 31));
+					if (dp.max && start > dp.max) return false;
+					if (dp.min && end < dp.min) return false;
+					return true;
+				}
+
+				function renderHeader(label, onLabelClick) {
+					var head = document.createElement("div");
+					head.className = "att-dp-header";
+					var prev = document.createElement("button");
+					prev.type = "button"; prev.className = "att-dp-nav"; prev.setAttribute("aria-label", "Previous");
+					prev.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg>';
+					prev.addEventListener("click", function (e) { e.stopPropagation(); page(-1); });
+					var lbl = document.createElement("button");
+					lbl.type = "button"; lbl.className = "att-dp-label"; lbl.textContent = label;
+					if (onLabelClick) lbl.addEventListener("click", function (e) { e.stopPropagation(); onLabelClick(); });
+					else { lbl.style.cursor = "default"; }
+					var next = document.createElement("button");
+					next.type = "button"; next.className = "att-dp-nav"; next.setAttribute("aria-label", "Next");
+					next.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5"/></svg>';
+					next.addEventListener("click", function (e) { e.stopPropagation(); page(1); });
+					head.appendChild(prev); head.appendChild(lbl); head.appendChild(next);
+					return head;
+				}
+
+				function render() {
+					panel.innerHTML = "";
+					if (dp.view === "days") renderDays();
+					else if (dp.view === "months") renderMonths();
+					else renderYears();
+
+					var footer = document.createElement("div");
+					footer.className = "att-dp-footer";
+					var todayBtn = document.createElement("button");
+					todayBtn.type = "button"; todayBtn.className = "att-dp-today-btn"; todayBtn.textContent = "Today";
+					todayBtn.addEventListener("click", function (e) {
+						e.stopPropagation();
+						dp.cursorYear = today.getUTCFullYear();
+						dp.cursorMonth = today.getUTCMonth();
+						dp.view = "days";
+						if (inRange(today)) select(today);
+						else render();
+					});
+					footer.appendChild(todayBtn);
+					panel.appendChild(footer);
+				}
+
+				function renderDays() {
+					panel.appendChild(renderHeader(MONTH_ABBR[dp.cursorMonth] + " " + dp.cursorYear, function () { dp.view = "months"; render(); }));
+					var grid = document.createElement("div");
+					grid.className = "att-dp-grid";
+					DP_WEEKDAYS.forEach(function (w) {
+						var el = document.createElement("div");
+						el.className = "att-dp-weekday"; el.textContent = w;
+						grid.appendChild(el);
+					});
+					var firstOfMonth = new Date(Date.UTC(dp.cursorYear, dp.cursorMonth, 1));
+					var startOffset = firstOfMonth.getUTCDay();
+					var cursor = addDays(firstOfMonth, -startOffset);
+					for (var i = 0; i < 42; i++) {
+						(function (cellDate) {
+							var btn = document.createElement("button");
+							btn.type = "button"; btn.className = "att-dp-cell";
+							btn.textContent = cellDate.getUTCDate();
+							if (cellDate.getUTCMonth() !== dp.cursorMonth) btn.classList.add("att-dp-muted");
+							if (fmtISO(cellDate) === fmtISO(today)) btn.classList.add("att-dp-today");
+							if (dp.selected && fmtISO(cellDate) === fmtISO(dp.selected)) btn.classList.add("att-dp-selected");
+							if (!inRange(cellDate)) btn.disabled = true;
+							btn.addEventListener("click", function (e) { e.stopPropagation(); select(cellDate); });
+							grid.appendChild(btn);
+						})(cursor);
+						cursor = addDays(cursor, 1);
+					}
+					panel.appendChild(grid);
+				}
+
+				function renderMonths() {
+					panel.appendChild(renderHeader(String(dp.cursorYear), function () {
+						dp.view = "years";
+						dp.yearPageStart = Math.floor(dp.cursorYear / DP_YEARS_PER_PAGE) * DP_YEARS_PER_PAGE;
+						render();
+					}));
+					var grid = document.createElement("div");
+					grid.className = "att-dp-grid att-dp-grid-3";
+					MONTH_ABBR.forEach(function (m, idx) {
+						var btn = document.createElement("button");
+						btn.type = "button"; btn.className = "att-dp-cell att-dp-month"; btn.textContent = m;
+						if (dp.cursorYear === today.getUTCFullYear() && idx === today.getUTCMonth()) btn.classList.add("att-dp-today");
+						if (!monthInRange(dp.cursorYear, idx)) btn.disabled = true;
+						btn.addEventListener("click", function (e) {
+							e.stopPropagation();
+							dp.cursorMonth = idx; dp.view = "days"; render();
+						});
+						grid.appendChild(btn);
+					});
+					panel.appendChild(grid);
+				}
+
+				function renderYears() {
+					var label = dp.yearPageStart + " – " + (dp.yearPageStart + DP_YEARS_PER_PAGE - 1);
+					panel.appendChild(renderHeader(label, null));
+					var grid = document.createElement("div");
+					grid.className = "att-dp-grid att-dp-grid-3";
+					for (var y = dp.yearPageStart; y < dp.yearPageStart + DP_YEARS_PER_PAGE; y++) {
+						(function (year) {
+							var btn = document.createElement("button");
+							btn.type = "button"; btn.className = "att-dp-cell att-dp-year"; btn.textContent = year;
+							if (year === today.getUTCFullYear()) btn.classList.add("att-dp-today");
+							if (!yearInRange(year)) btn.disabled = true;
+							btn.addEventListener("click", function (e) {
+								e.stopPropagation();
+								dp.cursorYear = year; dp.view = "months"; render();
+							});
+							grid.appendChild(btn);
+						})(y);
+					}
+					panel.appendChild(grid);
+				}
+
+				function page(dir) {
+					if (dp.view === "days") {
+						var d = addMonths(new Date(Date.UTC(dp.cursorYear, dp.cursorMonth, 1)), dir);
+						dp.cursorYear = d.getUTCFullYear(); dp.cursorMonth = d.getUTCMonth();
+					} else if (dp.view === "months") {
+						dp.cursorYear += dir;
+					} else {
+						dp.yearPageStart += dir * DP_YEARS_PER_PAGE;
+					}
+					render();
+				}
+
+				function select(date) {
+					dp.selected = date;
+					dp.cursorYear = date.getUTCFullYear();
+					dp.cursorMonth = date.getUTCMonth();
+					dp.view = "days";
+					close();
+					if (opts.onSelect) opts.onSelect(date);
+				}
+
+				function openPanel() {
+					if (dp.open) return;
+					dp.open = true;
+					dp.view = "days";
+					if (dp.selected) { dp.cursorYear = dp.selected.getUTCFullYear(); dp.cursorMonth = dp.selected.getUTCMonth(); }
+					panel.hidden = false;
+					positionPanel();
+					render();
+					document.addEventListener("keydown", onKeydown);
+				}
+				function close() {
+					if (!dp.open) return;
+					dp.open = false;
+					panel.hidden = true;
+					document.removeEventListener("keydown", onKeydown);
+				}
+				function onKeydown(e) {
+					if (e.key === "Escape") { close(); return; }
+					if (e.key === "ArrowLeft") { e.preventDefault(); page(-1); }
+					if (e.key === "ArrowRight") { e.preventDefault(); page(1); }
+				}
+
+				inputEl.addEventListener("click", function () { dp.open ? close() : openPanel(); });
+				document.addEventListener("click", function (e) {
+					if (dp.open && !wrapEl.contains(e.target)) close();
+				});
+
+				return {
+					setDate: function (date, triggerCallback) {
+						dp.selected = date;
+						dp.cursorYear = date.getUTCFullYear();
+						dp.cursorMonth = date.getUTCMonth();
+						inputEl.value = fmtISO(date);
+						if (dp.open) render();
+						if (triggerCallback && opts.onSelect) opts.onSelect(date);
+					},
+					setMin: function (date) { dp.min = date; if (dp.open) render(); },
+					setMax: function (date) { dp.max = date; if (dp.open) render(); },
+				};
+			}
+
+			function wireControls() {
+				els.customRangeBtn.addEventListener("click", function () {
+					var showingCustom = els.dateRangeFields.classList.contains("att-expanded");
+					if (showingCustom) {
+						els.dateRangeFields.classList.remove("att-expanded");
+						els.sickYear.classList.remove("att-collapsed");
+						els.customRangeBtn.classList.remove("active");
+						els.customRangeBtn.textContent = "Custom range";
+						els.customRangeError.textContent = "";
+						if (state.mode === "custom") {
+							state.mode = "year";
+							Array.prototype.forEach.call(els.sickYear.querySelectorAll("button"), function (b) {
+								var isCurrent = b.textContent === String(state.sickYear);
+								b.classList.toggle("active", isCurrent);
+								b.setAttribute("aria-selected", isCurrent ? "true" : "false");
+							});
+							loadSickData({ year: state.sickYear });
+						}
+					} else {
+						els.sickYear.classList.add("att-collapsed");
+						els.dateRangeFields.classList.add("att-expanded");
+						els.customRangeBtn.classList.add("active");
+						els.customRangeBtn.textContent = "Year range";
+						if (!els.customFrom.value && state.sickFrom) fromPicker.setDate(state.sickFrom, false);
+						if (!els.customTo.value && state.sickTo) toPicker.setDate(state.sickTo, false);
+					}
+				});
+
+				function applyCustomRange() {
+					els.customRangeError.textContent = "";
+					var fromVal = els.customFrom.value, toVal = els.customTo.value;
+					if (!fromVal || !toVal) return; // wait until both are picked
+					if (fromVal > toVal) {
+						els.customRangeError.textContent = "Start date must be before end date.";
+						return;
+					}
+					if (state.loading) return;
+					state.mode = "custom";
+					Array.prototype.forEach.call(els.sickYear.querySelectorAll("button"), function (b) {
+						b.classList.remove("active"); b.setAttribute("aria-selected", "false");
+					});
+					els.customRangeBtn.classList.add("active");
+					loadSickData({ from_date: fromVal, to_date: toVal });
+				}
+				var todayDate = parseDate(fmtISO(new Date()));
+				var fromPicker = createDatePicker(document.getElementById("attFromWrap"), els.customFrom, {
+					max: todayDate,
+					onSelect: function (date) {
+						els.customFrom.value = fmtISO(date);
+						toPicker.setMin(date);
+						applyCustomRange();
+					},
+				});
+				var toPicker = createDatePicker(document.getElementById("attToWrap"), els.customTo, {
+					max: todayDate,
+					onSelect: function (date) {
+						els.customTo.value = fmtISO(date);
+						fromPicker.setMax(date);
+						applyCustomRange();
+					},
+				});
+
+				els.companyBtn.addEventListener("click", function () {
+					var expanded = els.companyBtn.getAttribute("aria-expanded") === "true";
+					els.companyBtn.setAttribute("aria-expanded", String(!expanded));
+					els.companyPanel.hidden = expanded;
+				});
+				document.addEventListener("click", function (e) {
+					if (!els.companyPanel.hidden && !els.companyPanel.contains(e.target) && !els.companyBtn.contains(e.target)) {
+						els.companyPanel.hidden = true;
+						els.companyBtn.setAttribute("aria-expanded", "false");
+					}
+				});
+
+				els.modalClose.addEventListener("click", closeModal);
+				els.modalOverlay.addEventListener("click", function (e) { if (e.target === els.modalOverlay) closeModal(); });
+				document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !els.modalOverlay.hidden) closeModal(); });
+
+				els.sickCompanyTableWrap.addEventListener("click", function (e) {
+					var row = e.target.closest("tr[data-slug]");
+					if (row) openSickCompanyDetail(row.getAttribute("data-slug"));
+				});
+				els.sickEmployeeTableWrap.addEventListener("click", function (e) {
+					var row = e.target.closest("tr[data-employee]");
+					if (row) openSickEmployeeDetail(row.getAttribute("data-employee"));
+				});
+
+				window.addEventListener("resize", debounce(function () { renderSickLeavePatterns(); }, 200));
+			}
+
+			async function main() {
+				wireControls();
+				buildYearToggle();
+				await loadSickData({ year: state.sickYear });
+			}
+
+			main();
+		})();
+		</script>
+		{% endraw %}
+	</body>
+</html>

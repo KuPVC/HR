@@ -104,6 +104,9 @@
 			.att-kpi-value { font-family: var(--font-display); font-size: 25px; font-weight: 800; color: var(--ink); line-height: 1; }
 			.att-kpi-sub { font-size: 12.5px; color: var(--ink-secondary); display: flex; align-items: center; gap: 5px; }
 			.att-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+			a.att-kpi-link { text-decoration: none; color: inherit; cursor: pointer; transition: background .12s ease; }
+			a.att-kpi-link:hover { background: var(--card-hover); }
+			a.att-kpi-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 			.att-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 20px; }
 			.att-seg { display: inline-flex; background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
@@ -168,6 +171,7 @@
 			.att-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; margin-bottom: 18px; }
 			.att-mini { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 10px; }
 			.att-mini-clickable { cursor: pointer; transition: background .12s ease, box-shadow .12s ease; }
+			tr.att-row-clickable { cursor: pointer; }
 			.att-mini-clickable:hover { background: var(--card-hover); box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
 			.att-mini-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -226,7 +230,6 @@
 
 				<div class="att-header">
 					<div>
-						<div class="att-header-eyebrow" id="attEyebrow">Keystone UAE &middot; Human Resources</div>
 						<h1 class="att-title">Attendance Dashboard</h1>
 						<div class="att-subtitle" id="attSubtitle">Loading attendance records from ERPNext&hellip;</div>
 					</div>
@@ -322,10 +325,6 @@
 					View aggregate figures as a table
 				</button>
 				<div id="attTableWrap" class="att-table-scroll" hidden></div>
-
-				<div class="att-footer-note">
-					Source: ERPNext Attendance records, live via craft_hr.api. Click Refresh to pull the latest data from ERPNext.
-				</div>
 			</div>
 
 			<div class="att-tooltip" id="attTooltip" role="status"></div>
@@ -446,11 +445,21 @@
 				reportSearch: ""
 			};
 
-			var WINDOW_CFG = {
-				daily:   { bucketDays: 1,  bucketCount: 30, stepDays: 14 },
-				weekly:  { bucketDays: 7,  bucketCount: 12, stepDays: 56 },
-				monthly: { bucketDays: 30, bucketCount: 6,  stepDays: 180, calendarMonth: true }
-			};
+			function addMonthsPreserveDay(d, n) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate())); }
+
+			var WEEKLY_BUCKET_COUNT = 26; // ~6 months of weeks visible at once
+			var WEEKLY_STEP_WEEKS = 13;   // page by one quarter
+
+			// Salary period = 25th of one month through the 24th of the next -
+			// this is what "Daily" should page by, not a rolling 30-day window.
+			function salaryPeriodFor(d) {
+				var day = d.getUTCDate();
+				var year = d.getUTCFullYear(), month = d.getUTCMonth();
+				if (day < 25) month -= 1;
+				var start = new Date(Date.UTC(year, month, 25));
+				var end = new Date(Date.UTC(year, month + 1, 24));
+				return { start: start, end: end };
+			}
 
 			function parseDate(s) { var p = s.split("-"); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); }
 			function fmtISO(d) {
@@ -489,6 +498,7 @@
 			async function main() {
 				await loadAll();
 				wireControls();
+				loadSickRateSummary();
 			}
 
 			function showFatal(msg) {
@@ -502,7 +512,9 @@
 					els.refreshLabel.textContent = "Refreshing…";
 				}
 				try {
-					var bundle = await callMethod("craft_hr.api.get_attendance_dashboard_bundle", { days: 200 });
+					// 370 days so the monthly view's full Jan-Dec year is always covered,
+					// even when "today" is early in the year.
+					var bundle = await callMethod("craft_hr.api.get_attendance_dashboard_bundle", { days: 370 });
 
 					var byDate = {};
 					var attendanceByEmployeeDate = {};
@@ -524,7 +536,7 @@
 					});
 					var withData = {};
 					dates.forEach(function (dt) { byDate[dt].forEach(function (e) { if (e.company_slug) withData[e.company_slug] = true; }); });
-					var companies = allCompanies.filter(function (c) { return withData[c.slug]; })
+					var companies = allCompanies.filter(function (c) { return withData[c.slug] && c.active_employees > 0; })
 						.sort(function (a, b) { return b.active_employees - a.active_employees || a.name.localeCompare(b.name); });
 
 					var hd = bundle.holidays || {};
@@ -596,7 +608,7 @@
 			}
 
 			function wireControls() {
-				els.refreshBtn.addEventListener("click", function () { loadAll(true); });
+				els.refreshBtn.addEventListener("click", function () { loadAll(true); loadSickRateSummary(); });
 
 				els.modalClose.addEventListener("click", closeCompanyModal);
 				els.modalOverlay.addEventListener("click", function (e) {
@@ -761,12 +773,13 @@
 
 			function shiftWindow(dir) {
 				if (!state.anchorEnd) return;
-				var cfg = WINDOW_CFG[state.granularity];
 				var next;
-				if (cfg.calendarMonth) {
-					next = addMonths(state.anchorEnd, dir * 6);
+				if (state.granularity === "daily") {
+					next = addMonthsPreserveDay(state.anchorEnd, dir); // one salary period
+				} else if (state.granularity === "monthly") {
+					next = addMonthsPreserveDay(state.anchorEnd, dir * 12); // one year
 				} else {
-					next = addDays(state.anchorEnd, dir * cfg.stepDays);
+					next = addDays(state.anchorEnd, dir * 7 * WEEKLY_STEP_WEEKS); // one quarter of weeks
 				}
 				if (state.minDate && next < state.minDate) next = state.minDate;
 				if (state.maxDate && next > state.maxDate) next = state.maxDate;
@@ -829,27 +842,31 @@
 			}
 
 			function getBuckets() {
-				var cfg = WINDOW_CFG[state.granularity];
 				var buckets = [];
 				if (state.granularity === "daily") {
-					var end = state.anchorEnd;
-					for (var i = cfg.bucketCount - 1; i >= 0; i--) {
-						var d = addDays(end, -i);
+					// One salary period: the 25th of a month through the 24th of the next.
+					var period = salaryPeriodFor(state.anchorEnd);
+					var d = period.start;
+					while (d <= period.end) {
 						buckets.push({ start: d, end: d, label: fmtDay(d), fullLabel: fmtDayYear(d), dayContext: computeDayContext(fmtISO(d)) });
+						d = addDays(d, 1);
 					}
 				} else if (state.granularity === "weekly") {
+					// As many weeks as comfortably fit on one screen, paged by
+					// a quarter (13 weeks) at a time via prev/next or arrow keys.
 					var wEnd = startOfWeek(state.anchorEnd);
-					for (var j = cfg.bucketCount - 1; j >= 0; j--) {
+					for (var j = WEEKLY_BUCKET_COUNT - 1; j >= 0; j--) {
 						var ws = addDays(wEnd, -j * 7);
 						var we = addDays(ws, 6);
 						buckets.push({ start: ws, end: we, label: fmtDay(ws), fullLabel: fmtDay(ws) + " – " + fmtDayYear(we) });
 					}
 				} else {
-					var mEnd = startOfMonth(state.anchorEnd);
-					for (var k = cfg.bucketCount - 1; k >= 0; k--) {
-						var ms = addMonths(mEnd, -k);
+					// Full calendar year (Jan-Dec) of whichever year is anchored.
+					var year = state.anchorEnd ? state.anchorEnd.getUTCFullYear() : new Date().getUTCFullYear();
+					for (var m = 0; m < 12; m++) {
+						var ms = new Date(Date.UTC(year, m, 1));
 						var me = addDays(addMonths(ms, 1), -1);
-						buckets.push({ start: ms, end: me, label: MONTH_ABBR[ms.getUTCMonth()], fullLabel: fmtMonthYear(ms) });
+						buckets.push({ start: ms, end: me, label: MONTH_ABBR[m], fullLabel: fmtMonthYear(ms) });
 					}
 				}
 				buckets.forEach(function (b) { computeBucketValues(b); });
@@ -963,7 +980,7 @@
 				var buckets = getBuckets();
 				els.windowLabel.textContent = windowRangeLabel(buckets);
 				els.prev.disabled = state.minDate && buckets.length && buckets[0].start <= state.minDate;
-				els.next.disabled = state.maxDate && state.anchorEnd >= state.maxDate;
+				els.next.disabled = state.maxDate && buckets.length && buckets[buckets.length - 1].end >= state.maxDate;
 
 				renderKpis(buckets);
 
@@ -985,7 +1002,8 @@
 			}
 
 			function renderKpis(buckets) {
-				var totalActive = state.companies.reduce(function (a, c) { return a + (c.active_employees || 0); }, 0);
+				var selectedCompanies = state.companies.filter(function (c) { return state.selected.has(c.slug); });
+				var totalActive = selectedCompanies.reduce(function (a, c) { return a + (c.active_employees || 0); }, 0);
 				var rateVal = null;
 				var sum = { present: 0, wfh: 0, half_day: 0, absent: 0, missed_punch: 0, total: 0, late_entry: 0, short_hours: 0 };
 				if (buckets && buckets.length) {
@@ -998,24 +1016,62 @@
 				}
 				var rateColor = rateVal == null ? "var(--ink-muted)" : rateVal >= 90 ? "var(--good)" : rateVal >= 75 ? "var(--warn)" : "var(--crit)";
 
+				var sickRateVal = null;
+				if (state.sickByCompany && totalActive > 0) {
+					var sickEmployees = new Set();
+					selectedCompanies.forEach(function (c) {
+						var set = state.sickByCompany[c.slug];
+						if (set) set.forEach(function (e) { sickEmployees.add(e); });
+					});
+					sickRateVal = Math.round((sickEmployees.size / totalActive) * 1000) / 10;
+				}
+				var sickRateColor = sickRateVal == null ? "var(--ink-muted)" : sickRateVal <= 5 ? "var(--good)" : sickRateVal <= 15 ? "var(--warn)" : "var(--crit)";
+
 				els.kpis.innerHTML = "";
 				var tiles = [
-					{ label: "Active Employees", value: totalActive, sub: "across " + state.companies.length + " compan" + (state.companies.length === 1 ? "y" : "ies") },
+					{ label: "Active Employees", value: totalActive, sub: selectedCompanies.length + " of " + state.companies.length + " compan" + (state.companies.length === 1 ? "y" : "ies") },
 					{ label: "Attendance Rate", value: rateVal == null ? "—" : rateVal + "%", sub: "selected window", dot: rateColor },
 					{ label: "Missed Punch", value: sum.missed_punch, sub: "single check-in, no checkout", dot: "var(--status-missed)" },
 					{ label: "Late Entries", value: sum.late_entry, sub: "selected window", dot: "var(--warn)" },
 					{ label: "Short Hours", value: sum.short_hours, sub: "selected window", dot: "var(--warn)" },
-					{ label: "Data Through", value: state.maxDate ? fmtDay(state.maxDate) : "—", sub: state.maxDate ? String(state.maxDate.getUTCFullYear()) : "" }
+					{
+						label: "Sick Leave Rate", value: sickRateVal == null ? "—" : sickRateVal + "%",
+						sub: "employees with sick leave, " + (state.sickRateYear || new Date().getUTCFullYear()) + " · view details",
+						dot: sickRateColor, href: "/sick-leave-dashboard"
+					}
 				];
 				tiles.forEach(function (t) {
-					var tile = document.createElement("div");
-					tile.className = "att-kpi";
+					var tile = document.createElement(t.href ? "a" : "div");
+					tile.className = "att-kpi" + (t.href ? " att-kpi-link" : "");
+					if (t.href) tile.href = t.href;
 					var sub = t.dot
 						? '<div class="att-kpi-sub"><span class="att-dot" style="background:' + t.dot + '"></span>' + t.sub + '</div>'
 						: '<div class="att-kpi-sub">' + t.sub + '</div>';
 					tile.innerHTML = '<div class="att-kpi-label">' + t.label + '</div><div class="att-kpi-value">' + t.value + '</div>' + sub;
 					els.kpis.appendChild(tile);
 				});
+			}
+
+			async function loadSickRateSummary() {
+				try {
+					var year = new Date().getUTCFullYear();
+					var data = await callMethod("craft_hr.api.get_sick_leave_year_data", { year: year });
+					var employeeSlug = {};
+					(data.employees || []).forEach(function (e) { employeeSlug[e.employee] = e.company_slug; });
+					var sickByCompany = {};
+					(data.leave_applications || []).forEach(function (a) {
+						if (a.status !== "Approved" || !/sick/i.test(a.leave_type || "")) return;
+						var slug = employeeSlug[a.employee];
+						if (!slug) return;
+						if (!sickByCompany[slug]) sickByCompany[slug] = new Set();
+						sickByCompany[slug].add(a.employee);
+					});
+					state.sickRateYear = year;
+					state.sickByCompany = sickByCompany;
+					if (state._lastBuckets) renderKpis(state._lastBuckets);
+				} catch (err) {
+					console.error("sick leave rate summary load error", err);
+				}
 			}
 
 			function renderGrid(buckets) {
@@ -1087,6 +1143,7 @@
 				container.innerHTML = "";
 				if (!buckets.length) { container.innerHTML = '<div class="att-empty">No data in this window.</div>'; return; }
 
+				var statuses = opts.statuses || STATUS;
 				var compact = !!opts.compact;
 				var height = opts.height || 200;
 				var padLeft = compact ? 30 : 38;
@@ -1150,7 +1207,7 @@
 
 					var yCursor = padTop + plotH;
 					var segsDrawn = [];
-					STATUS.forEach(function (s) {
+					statuses.forEach(function (s) {
 						var v = vals[s.key] || 0;
 						if (v <= 0) return;
 						var segH = (v / niceMax) * plotH;
@@ -1166,11 +1223,11 @@
 						if (isTop && r > 0) {
 							path = svgEl("path", {
 								d: roundedTopRectPath(x, seg.y, barW, seg.h, r),
-								fill: "var(" + STATUS.find(function (s) { return s.key === seg.key; }).var + ")",
+								fill: "var(" + statuses.find(function (s) { return s.key === seg.key; }).var + ")",
 								"pointer-events": "none"
 							});
 						} else {
-							path = svgEl("rect", { x: x, y: seg.y, width: barW, height: seg.h, fill: "var(" + STATUS.find(function (s) { return s.key === seg.key; }).var + ")", "pointer-events": "none" });
+							path = svgEl("rect", { x: x, y: seg.y, width: barW, height: seg.h, fill: "var(" + statuses.find(function (s) { return s.key === seg.key; }).var + ")", "pointer-events": "none" });
 						}
 						svg.appendChild(path);
 					});
@@ -1181,18 +1238,19 @@
 						svg.appendChild(xl);
 					}
 
-					hit.addEventListener("pointerenter", function () { showTooltip(b, vals); positionTooltip(hit, container); hoverRect.setAttribute("opacity", opts.compact ? 0.10 : 0.07); });
+					hit.addEventListener("pointerenter", function () { showTooltip(b, vals, statuses); positionTooltip(hit, container); hoverRect.setAttribute("opacity", opts.compact ? 0.10 : 0.07); });
 					hit.addEventListener("pointermove", function () { positionTooltip(hit, container); });
 					hit.addEventListener("pointerleave", function () { hideTooltip(); hoverRect.setAttribute("opacity", 0); });
-					hit.addEventListener("focus", function () { showTooltip(b, vals); positionTooltip(hit, container); hoverRect.setAttribute("opacity", opts.compact ? 0.10 : 0.07); });
+					hit.addEventListener("focus", function () { showTooltip(b, vals, statuses); positionTooltip(hit, container); hoverRect.setAttribute("opacity", opts.compact ? 0.10 : 0.07); });
 					hit.addEventListener("blur", function () { hideTooltip(); hoverRect.setAttribute("opacity", 0); });
 					hit.setAttribute("tabindex", "0");
 
 					if (opts.clickable) {
 						hit.setAttribute("role", "link");
-						hit.setAttribute("aria-label", "Open Attendance list for " + b.fullLabel);
+						hit.setAttribute("aria-label", "Open list for " + b.fullLabel);
 						var go = function () {
-							window.open(buildAttendanceListUrl(b.start, b.end, opts.companyNames), "_blank");
+							var url = opts.buildUrl ? opts.buildUrl(b) : buildAttendanceListUrl(b.start, b.end, opts.companyNames);
+							window.open(url, "_blank");
 						};
 						hit.addEventListener("click", go);
 						hit.addEventListener("keydown", function (e) {
@@ -1221,8 +1279,9 @@
 				return nice * mag;
 			}
 
-			function showTooltip(bucket, vals) {
-				var rows = STATUS.map(function (s) {
+			function showTooltip(bucket, vals, statuses) {
+				statuses = statuses || STATUS;
+				var rows = statuses.map(function (s) {
 					return '<div class="att-tooltip-row"><span class="k"><span class="swatch" style="background:var(' + s.var + ')"></span>' + s.label + '</span><span class="v">' + (vals[s.key] || 0) + '</span></div>';
 				}).join("");
 				var note = bucket.dayContext ? dayContextNote(bucket.dayContext) : null;
