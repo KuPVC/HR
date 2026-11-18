@@ -131,14 +131,13 @@
 										<Button
 											size="sm"
 											variant="subtle"
-											:title="__('Hover: check-in logs · Click: open attendance')"
-											@mouseenter="showLogs(item.employee)"
-											@mouseleave="hideLogs(item.employee)"
+											:title="__('Open attendance')"
 											@click="openAttendance(item)"
 										>
 											+
 										</Button>
 										<Button
+											v-if="category.key !== 'no_issues'"
 											size="sm"
 											variant="outline"
 											:title="__('Attendance Request')"
@@ -149,6 +148,7 @@
 											{{ __("AR") }}
 										</Button>
 										<Button
+											v-if="category.key !== 'no_issues'"
 											size="sm"
 											variant="outline"
 											:title="__('Leave Application')"
@@ -158,28 +158,6 @@
 										>
 											{{ __("LA") }}
 										</Button>
-									</div>
-								</div>
-
-								<!-- Check-in logs (expands under the row) -->
-								<div
-									v-if="openLogs[item.employee]"
-									class="mt-1 border-t border-gray-100 pt-1 pl-7 text-xs text-gray-600"
-								>
-									<span v-if="logResources[item.employee]?.loading">
-										{{ __("Loading...") }}
-									</span>
-									<span v-else-if="!logResources[item.employee]?.data?.length">
-										{{ __("No check-in logs for this date") }}
-									</span>
-									<div v-else class="flex flex-row flex-wrap gap-x-3 gap-y-0.5">
-										<span
-											v-for="log in logResources[item.employee].data"
-											:key="log.name"
-										>
-											<span class="font-semibold">{{ log.log_type }}</span>
-											{{ dayjs(log.time).format("h:mm:ss A") }}
-										</span>
 									</div>
 								</div>
 							</div>
@@ -199,9 +177,11 @@
 				<div
 					class="mt-3 border-t border-gray-100 pt-2 text-xs text-gray-500 flex flex-row flex-wrap gap-x-4 gap-y-0.5"
 				>
-					<span><b>+</b> = {{ __("Hover for check-in logs, click to open the attendance") }}</span>
-					<span><b>AR</b> = {{ __("Attendance Request") }}</span>
-					<span><b>LA</b> = {{ __("Leave Application") }}</span>
+					<span><b>+</b> = {{ __("Open the attendance") }}</span>
+					<template v-if="showActionLegend">
+						<span><b>AR</b> = {{ __("Attendance Request") }}</span>
+						<span><b>LA</b> = {{ __("Leave Application") }}</span>
+					</template>
 				</div>
 			</template>
 		</Dialog>
@@ -209,7 +189,7 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref, watch } from "vue"
+import { computed, inject, ref, watch } from "vue"
 import { Avatar, Button, Dialog, FeatherIcon, createResource } from "frappe-ui"
 
 import EmptyState from "@/components/EmptyState.vue"
@@ -343,24 +323,10 @@ function rowDetail(item) {
 	return parts.join(" · ")
 }
 
-// Check-in logs, fetched lazily per employee for the selected date
-const openLogs = reactive({})
-const logResources = reactive({})
-
-function showLogs(employee) {
-	openLogs[employee] = true
-	if (!logResources[employee]) {
-		logResources[employee] = createResource({
-			url: "craft_hr.api.get_team_employee_checkins",
-			params: { employee, date: selectedDate.value.format("YYYY-MM-DD") },
-			auto: true,
-		})
-	}
-}
-
-function hideLogs(employee) {
-	openLogs[employee] = false
-}
+// AR / LA legend only when the visible list has rows that show those buttons
+const showActionLegend = computed(() =>
+	visibleCategories.value.some((category) => category.key !== "no_issues")
+)
 
 function openAttendance(item) {
 	if (!item.attendance) return
@@ -370,8 +336,6 @@ function openAttendance(item) {
 function handleDateClick(date) {
 	selectedDate.value = date
 	// reset per-date state
-	Object.keys(openLogs).forEach((key) => delete openLogs[key])
-	Object.keys(logResources).forEach((key) => delete logResources[key])
 	activeDayTab.value = "issues"
 	showDayDialog.value = true
 }

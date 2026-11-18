@@ -506,23 +506,6 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
 
 
 @frappe.whitelist()
-def get_team_employee_checkins(employee: str, date: str) -> list[dict]:
-    """Employee Checkin logs (IN/OUT times) of one employee on one date, for
-    the LOGS button in the Team Calendar day popup. Limited to the same
-    employees the Team Calendar itself shows the user."""
-    if employee not in _get_team_calendar_employees(frappe.session.user):
-        frappe.throw(frappe._("Not permitted to view this employee's check-in logs"), frappe.PermissionError)
-
-    return frappe.get_all(
-        "Employee Checkin",
-        filters={"employee": employee, "time": ["between", [f"{date} 00:00:00", f"{date} 23:59:59"]]},
-        fields=["name", "log_type", "time", "device_id"],
-        order_by="time asc",
-        ignore_permissions=True,
-    )
-
-
-@frappe.whitelist()
 def get_attendance_request_type_hours_based(reason: str) -> int:
     """Whether the selected Attendance Request Type requires hours to be entered."""
     if not reason:
