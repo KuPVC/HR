@@ -423,9 +423,18 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
     okay" query. Manager-only, same reports_to gate as Team Requests /
     Overtime Slip (see can_approve_team_requests(), _get_direct_report_employees()).
     """
+    checked_dates = [
+        str(row)
+        for row in frappe.get_all(
+            "Team Calendar Check",
+            filters={"user": frappe.session.user, "date": ["between", [from_date, to_date]]},
+            pluck="date",
+        )
+    ]
+
     reports = _get_team_calendar_employees(frappe.session.user)
     if not reports:
-        return {"total_employees": 0, "days": {}}
+        return {"total_employees": 0, "days": {}, "checked_dates": checked_dates}
 
     employee_names = {
         row.name: row.employee_name
@@ -508,7 +517,26 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
     for day in days.values():
         day["issue_count"] = len(day.pop("issue_employees"))
 
-    return {"total_employees": len(reports), "days": days}
+    return {"total_employees": len(reports), "days": days, "checked_dates": checked_dates}
+
+
+@frappe.whitelist()
+def set_team_calendar_date_checked(date: str, checked: int = 1) -> dict:
+    """Tick / untick a date as "checked" in the current user's Team Calendar.
+    A personal progress marker only - it changes nothing on any record."""
+    if not can_view_team_calendar():
+        frappe.throw(frappe._("Not permitted"), frappe.PermissionError)
+
+    date = str(getdate(date))
+    name = f"{frappe.session.user}-{date}"
+    exists = frappe.db.exists("Team Calendar Check", name)
+    if cint(checked) and not exists:
+        frappe.get_doc({"doctype": "Team Calendar Check", "user": frappe.session.user, "date": date}).insert(
+            ignore_permissions=True
+        )
+    elif not cint(checked) and exists:
+        frappe.delete_doc("Team Calendar Check", name, ignore_permissions=True, force=True)
+    return {"date": date, "checked": cint(checked)}
 
 
 @frappe.whitelist()
@@ -715,7 +743,7 @@ def get_team_overtime_slips(limit: int | None = None) -> list[dict]:
     if not reports:
         return []
 
-    return frappe.get_list(
+    slips = frappe.get_list(
         "Overtime Slip",
         fields=[
             "name",
@@ -726,6 +754,7 @@ def get_team_overtime_slips(limit: int | None = None) -> list[dict]:
             "end_date",
             "total_overtime_duration",
             "docstatus",
+            "workflow_state",
             "creation",
         ],
         filters={"employee": ["in", reports]},
@@ -733,6 +762,22 @@ def get_team_overtime_slips(limit: int | None = None) -> list[dict]:
         limit=limit,
         ignore_permissions=True,
     )
+    styles = _workflow_state_styles(slip.workflow_state for slip in slips)
+    for slip in slips:
+        slip["state_style"] = styles.get(slip.workflow_state)
+    return slips
+
+
+def _workflow_state_styles(states) -> dict:
+    """{workflow_state: style} (Success/Danger/Warning/Primary/Info/Inverse)
+    for the given Workflow State names."""
+    states = [state for state in set(states) if state]
+    if not states:
+        return {}
+    return {
+        row.name: row.style
+        for row in frappe.get_all("Workflow State", filters={"name": ["in", states]}, fields=["name", "style"])
+    }
 
 
 def _get_payroll_period(offset: int = 0) -> tuple:
@@ -817,6 +862,7 @@ def get_overtime_overview(offset: int = 0) -> dict:
             "end_date",
             "total_overtime_duration",
             "docstatus",
+            "workflow_state",
             "creation",
         ],
         order_by="start_date asc, creation asc",
@@ -843,6 +889,7 @@ def get_overtime_overview(offset: int = 0) -> dict:
                 }
             )
 
+    state_styles = _workflow_state_styles(slip.workflow_state for slip in slips)
     team_groups: dict[str, dict] = {}
     for slip in slips:
         details = details_by_slip.get(slip.name, [])
@@ -854,6 +901,8 @@ def get_overtime_overview(offset: int = 0) -> dict:
             "start_date": str(slip.start_date),
             "end_date": str(slip.end_date),
             "docstatus": slip.docstatus,
+            "workflow_state": slip.workflow_state,
+            "state_style": state_styles.get(slip.workflow_state),
             "total_hours": flt(slip.total_overtime_duration, 2),
             "period_hours": hours,
             "details": details,

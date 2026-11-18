@@ -164,6 +164,7 @@ import { computed, h, inject, ref, watch } from "vue"
 import { Avatar, Button, createResource } from "frappe-ui"
 
 import EmptyState from "@/components/EmptyState.vue"
+import { stateClasses, stateLabel } from "@/utils/workflow"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -273,9 +274,6 @@ const SlipRow = {
 		showName: { type: Boolean, default: true },
 	},
 	setup(props) {
-		const statusLabel = (docstatus) => (docstatus === 1 ? __("Submitted") : __("Draft"))
-		const statusClass = (docstatus) =>
-			docstatus === 1 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
 		return () => {
 			const slip = props.slip
 			return h(
@@ -305,8 +303,8 @@ const SlipRow = {
 							),
 							h(
 								"span",
-								{ class: `text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(slip.docstatus)}` },
-								statusLabel(slip.docstatus)
+								{ class: `text-xs font-medium px-2 py-0.5 rounded-full ${stateClasses(slip)}` },
+								stateLabel(slip, __)
 							),
 						]),
 					]),

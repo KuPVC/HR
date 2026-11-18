@@ -59,6 +59,13 @@
 								{{ cellDate.format("D") }}
 							</span>
 						</div>
+						<span
+							v-if="isChecked(cellDate)"
+							class="absolute -top-0.5 right-0 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-green-600 text-white ring-2 ring-white"
+							:title="__('Checked')"
+						>
+							<FeatherIcon name="check" class="h-2.5 w-2.5" />
+						</span>
 					</button>
 				</div>
 			</div>
@@ -67,7 +74,7 @@
 		<div class="flex flex-row items-center gap-1.5 px-1 text-xs text-gray-500">
 			<FeatherIcon name="info" class="h-3.5 w-3.5 shrink-0" />
 			<span>{{
-				__("Tip: click on any date to see who needs attention and who has no issues.")
+				__("Tip: click on any date to see who needs attention and who has no issues. Tick \"Checked\" once you have gone through a date - it shows a green tick on the calendar.")
 			}}</span>
 		</div>
 
@@ -76,6 +83,22 @@
 			:options="{ title: selectedDateLabel, size: 'lg' }"
 		>
 			<template #body-content>
+				<!-- Personal "I have gone through this date" marker -->
+				<label
+					class="flex items-center gap-2 mb-3 text-sm text-gray-800 cursor-pointer select-none"
+				>
+					<input
+						type="checkbox"
+						class="h-4 w-4 rounded border-gray-300"
+						:checked="isChecked(selectedDate)"
+						@change="toggleChecked($event.target.checked)"
+					/>
+					<span class="font-medium">{{ __("Checked") }}</span>
+					<span class="text-xs text-gray-500">
+						{{ __("Tick once you have gone through this date") }}
+					</span>
+				</label>
+
 				<!-- Tabs: only shown when the day has issues (otherwise there is only one list) -->
 				<div v-if="hasIssues" class="flex p-0.5 mb-3 bg-gray-200 rounded">
 					<button
@@ -376,4 +399,45 @@ const teamCalendar = createResource({
 		}
 	},
 })
+
+// "Checked" dates: a personal progress marker, saved per user
+const checkedDates = ref([])
+
+watch(
+	() => teamCalendar.data?.checked_dates,
+	(dates) => {
+		// keep ticks from other months already loaded, replace this period's
+		const start = periodStart.value.format("YYYY-MM-DD")
+		const end = periodEnd.value.format("YYYY-MM-DD")
+		const others = checkedDates.value.filter((d) => d < start || d > end)
+		checkedDates.value = [...others, ...(dates || [])]
+	},
+	{ immediate: true }
+)
+
+function isChecked(date) {
+	return !!date && checkedDates.value.includes(date.format("YYYY-MM-DD"))
+}
+
+const saveChecked = createResource({
+	url: "craft_hr.api.set_team_calendar_date_checked",
+})
+
+function toggleChecked(checked) {
+	if (!selectedDate.value) return
+	const key = selectedDate.value.format("YYYY-MM-DD")
+	const previous = [...checkedDates.value]
+	// optimistic update, rolled back if saving fails
+	checkedDates.value = checked
+		? [...previous.filter((d) => d !== key), key]
+		: previous.filter((d) => d !== key)
+	saveChecked.submit(
+		{ date: key, checked: checked ? 1 : 0 },
+		{
+			onError() {
+				checkedDates.value = previous
+			},
+		}
+	)
+}
 </script>

@@ -28,9 +28,9 @@
 						</div>
 						<span
 							class="text-xs font-medium px-2 py-1 rounded-full"
-							:class="statusClasses(doc.docstatus)"
+							:class="stateClasses(doc)"
 						>
-							{{ statusLabel(doc.docstatus) }}
+							{{ stateLabel(doc, __) }}
 						</span>
 					</a>
 				</div>
@@ -53,6 +53,7 @@ import { createResource } from "frappe-ui"
 
 import AppShell from "@/components/AppShell.vue"
 import EmptyState from "@/components/EmptyState.vue"
+import { stateClasses, stateLabel } from "@/utils/workflow"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -71,16 +72,5 @@ const documents = createResource({
 
 function formatDate(date) {
 	return date ? dayjs(date).format("D MMM YYYY") : ""
-}
-
-function statusLabel(docstatus) {
-	if (docstatus === 2) return __("Cancelled")
-	return docstatus ? __("Submitted") : __("Draft")
-}
-
-function statusClasses(docstatus) {
-	if (docstatus === 2) return "bg-red-100 text-red-700"
-	if (docstatus === 1) return "bg-green-100 text-green-700"
-	return "bg-gray-100 text-gray-700"
 }
 </script>

@@ -28,8 +28,8 @@
 		<template #right>
 			<Badge
 				variant="outline"
-				:theme="colorMap[status]"
-				:label="__(status)"
+				:theme="stateTheme(props.doc)"
+				:label="stateLabel(props.doc, __)"
 				size="md"
 			/>
 			<FeatherIcon name="chevron-right" class="h-5 w-5 text-gray-500" />
@@ -42,6 +42,7 @@ import { computed, inject } from "vue"
 import { Badge, FeatherIcon } from "frappe-ui"
 
 import ListItem from "@/components/ListItem.vue"
+import { stateLabel, stateTheme } from "@/utils/workflow"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -67,15 +68,4 @@ const dates = computed(() => {
 		: ""
 	return end && end !== start ? `${start} - ${end}` : start
 })
-
-const status = computed(() => {
-	if (props.doc.docstatus === 2) return "Cancelled"
-	return props.doc.docstatus ? "Submitted" : "Draft"
-})
-
-const colorMap = {
-	Draft: "gray",
-	Submitted: "blue",
-	Cancelled: "red",
-}
 </script>
