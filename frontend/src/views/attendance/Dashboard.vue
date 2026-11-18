@@ -3,7 +3,7 @@
 		<template #body>
 			<div class="flex flex-col gap-7 w-full max-w-[1600px] mx-auto">
 				<TabButtons
-					v-if="canApproveTeamRequests.data"
+					v-if="canViewTeamCalendar.data"
 					:buttons="['My Attendance', 'Team Calendar']"
 					v-model="activeTab"
 				/>
@@ -77,10 +77,11 @@ const dayjs = inject("$dayjs")
 
 const activeTab = ref("My Attendance")
 
-// Same manager-only gate as Team Requests / Overtime Slip.
-const canApproveTeamRequests = createResource({
-	url: "craft_hr.api.can_approve_team_requests",
-	cache: "craft_hr:can_approve_team_requests",
+// Managers/approvers (same gate as Team Requests / Overtime Slip) plus
+// department Creators, who see their departments' staff in the Team Calendar.
+const canViewTeamCalendar = createResource({
+	url: "craft_hr.api.can_view_team_calendar",
+	cache: "craft_hr:can_view_team_calendar",
 	auto: true,
 })
 

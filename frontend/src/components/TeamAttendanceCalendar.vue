@@ -40,11 +40,7 @@
 				>
 					<button
 						type="button"
-						class="relative h-9 w-9 mx-auto block"
-						:class="
-							isActionable(cellDate) ? 'cursor-pointer' : 'cursor-default'
-						"
-						:disabled="!isActionable(cellDate)"
+						class="relative h-9 w-9 mx-auto block cursor-pointer"
 						@click="handleDateClick(cellDate)"
 					>
 						<div
@@ -71,7 +67,7 @@
 		<div class="flex flex-row items-center gap-1.5 px-1 text-xs text-gray-500">
 			<FeatherIcon name="info" class="h-3.5 w-3.5 shrink-0" />
 			<span>{{
-				__("Tip: click on a highlighted date to review who needs attention.")
+				__("Tip: click on any date to see who needs attention and who has no issues.")
 			}}</span>
 		</div>
 
@@ -80,79 +76,142 @@
 			:options="{ title: selectedDateLabel, size: 'lg' }"
 		>
 			<template #body-content>
-				<div v-if="dayCategories.length" class="flex flex-col gap-5">
-					<div
-						v-for="category in dayCategories"
-						:key="category.key"
-						class="flex flex-col gap-2"
+				<!-- Tabs: only shown when the day has issues (otherwise there is only one list) -->
+				<div v-if="hasIssues" class="flex p-0.5 mb-3 bg-gray-200 rounded">
+					<button
+						v-for="tab in dayTabs"
+						:key="tab.key"
+						type="button"
+						class="px-3 py-1.5 transition-all rounded-md flex-auto text-sm font-medium"
+						:class="
+							activeDayTab === tab.key
+								? 'bg-white drop-shadow text-gray-900'
+								: 'text-gray-600'
+						"
+						@click="activeDayTab = tab.key"
 					>
-						<div class="text-sm font-semibold text-gray-700">
-							{{ category.label }} ({{ category.items.length }})
-						</div>
+						{{ tab.label }} ({{ tab.count }})
+					</button>
+				</div>
+
+				<!-- Scrollable list -->
+				<div class="max-h-[55vh] overflow-y-auto pr-1">
+					<div v-if="visibleCategories.length" class="flex flex-col gap-3">
 						<div
-							v-for="item in category.items"
-							:key="`${category.key}-${item.employee}`"
-							class="flex flex-col gap-2 rounded-lg border border-gray-100 p-2.5"
+							v-for="category in visibleCategories"
+							:key="category.key"
+							class="flex flex-col gap-1"
 						>
-							<div class="flex flex-row items-center justify-between gap-3">
-								<EmployeeAvatar :employeeID="item.employee" showLabel />
-								<div class="flex flex-row gap-2 shrink-0">
-									<Button
-										v-if="category.key === 'absent'"
-										variant="outline"
-										@click="
-											raiseRequest('leave-application', item.employee, item)
-										"
-									>
-										{{ __("Leave Application") }}
-									</Button>
-									<Button
-										variant="outline"
-										@click="
-											raiseRequest('attendance-request', item.employee, item)
-										"
-									>
-										{{ __("Attendance Request") }}
-									</Button>
-								</div>
+							<div
+								class="sticky top-0 z-10 bg-white py-0.5 text-xs font-semibold uppercase tracking-wide text-gray-500"
+							>
+								{{ category.label }} ({{ category.items.length }})
 							</div>
 							<div
-								v-if="item.in_time || item.out_time || item.hours_difference"
-								class="flex flex-row gap-4 pl-11 text-xs text-gray-500"
+								v-for="item in category.items"
+								:key="`${category.key}-${item.employee}`"
+								class="flex flex-col rounded-md border border-gray-100 px-2 py-1"
 							>
-								<span v-if="item.in_time || item.out_time">
-									{{ __("In") }}:
-									{{
-										item.in_time ? dayjs(item.in_time).format("h:mm A") : "-"
-									}}
-									&middot;
-									{{ __("Out") }}:
-									{{
-										item.out_time ? dayjs(item.out_time).format("h:mm A") : "-"
-									}}
-								</span>
-								<span v-if="item.hours_difference" class="text-purple-700">
-									{{
-										__("Short by {0}", [
-											formatHoursDuration(item.hours_difference),
-										])
-									}}
-								</span>
+								<div class="flex flex-row items-center justify-between gap-2">
+									<div class="flex flex-row items-center gap-2 min-w-0">
+										<Avatar :label="item.employee_name" size="xs" />
+										<div class="flex flex-col min-w-0">
+											<span class="truncate text-sm text-gray-800 leading-tight">
+												{{ item.employee_name }}
+											</span>
+											<span
+												v-if="rowDetail(item)"
+												class="truncate text-xs text-gray-500 leading-tight"
+											>
+												{{ rowDetail(item) }}
+											</span>
+										</div>
+									</div>
+									<div class="flex flex-row gap-1 shrink-0">
+										<Button
+											size="sm"
+											variant="subtle"
+											:title="__('Hover: check-in logs · Click: open attendance')"
+											@mouseenter="showLogs(item.employee)"
+											@mouseleave="hideLogs(item.employee)"
+											@click="openAttendance(item)"
+										>
+											+
+										</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											:title="__('Attendance Request')"
+											@click="
+												raiseRequest('attendance-request', item.employee, item)
+											"
+										>
+											{{ __("AR") }}
+										</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											:title="__('Leave Application')"
+											@click="
+												raiseRequest('leave-application', item.employee, item)
+											"
+										>
+											{{ __("LA") }}
+										</Button>
+									</div>
+								</div>
+
+								<!-- Check-in logs (expands under the row) -->
+								<div
+									v-if="openLogs[item.employee]"
+									class="mt-1 border-t border-gray-100 pt-1 pl-7 text-xs text-gray-600"
+								>
+									<span v-if="logResources[item.employee]?.loading">
+										{{ __("Loading...") }}
+									</span>
+									<span v-else-if="!logResources[item.employee]?.data?.length">
+										{{ __("No check-in logs for this date") }}
+									</span>
+									<div v-else class="flex flex-row flex-wrap gap-x-3 gap-y-0.5">
+										<span
+											v-for="log in logResources[item.employee].data"
+											:key="log.name"
+										>
+											<span class="font-semibold">{{ log.log_type }}</span>
+											{{ dayjs(log.time).format("h:mm:ss A") }}
+										</span>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
+					<EmptyState
+						v-else
+						:message="
+							selectedDay
+								? __('Nothing to show for this date')
+								: __('No attendance records for this date')
+						"
+					/>
 				</div>
-				<EmptyState v-else :message="__('Nothing to review for this date')" />
+
+				<!-- Abbreviations -->
+				<div
+					class="mt-3 border-t border-gray-100 pt-2 text-xs text-gray-500 flex flex-row flex-wrap gap-x-4 gap-y-0.5"
+				>
+					<span><b>+</b> = {{ __("Hover for check-in logs, click to open the attendance") }}</span>
+					<span><b>AR</b> = {{ __("Attendance Request") }}</span>
+					<span><b>LA</b> = {{ __("Leave Application") }}</span>
+				</div>
 			</template>
 		</Dialog>
 	</div>
 </template>
 
 <script setup>
-import { computed, inject, ref, watch } from "vue"
-import { Button, Dialog, FeatherIcon, createResource } from "frappe-ui"
+import { computed, inject, reactive, ref, watch } from "vue"
+import { Avatar, Button, Dialog, FeatherIcon, createResource } from "frappe-ui"
 
-import EmployeeAvatar from "@/components/EmployeeAvatar.vue"
 import EmptyState from "@/components/EmptyState.vue"
 import { formatHoursDuration } from "@/utils/formatters"
 
@@ -217,11 +276,6 @@ function cellStyle(date) {
 	}
 }
 
-function isActionable(date) {
-	if (date.isAfter(today, "day")) return false
-	return !!getDay(date)
-}
-
 const showDayDialog = ref(false)
 const selectedDate = ref(null)
 
@@ -237,22 +291,88 @@ const CATEGORY_LABELS = {
 	missed_punch: "Missed Punch",
 }
 
-const dayCategories = computed(() => {
-	const day = selectedDate.value ? getDay(selectedDate.value) : null
-	if (!day) return []
+const ISSUE_KEYS = Object.keys(CATEGORY_LABELS)
 
-	return Object.keys(CATEGORY_LABELS)
-		.map((key) => ({
-			key,
-			label: __(CATEGORY_LABELS[key]),
-			items: day[key] || [],
-		}))
-		.filter((category) => category.items.length)
+const selectedDay = computed(() =>
+	selectedDate.value ? getDay(selectedDate.value) : null
+)
+
+const issueCategories = computed(() => {
+	const day = selectedDay.value
+	if (!day) return []
+	return ISSUE_KEYS.map((key) => ({
+		key,
+		label: __(CATEGORY_LABELS[key]),
+		items: day[key] || [],
+	})).filter((category) => category.items.length)
 })
 
+const noIssueItems = computed(() => selectedDay.value?.no_issues || [])
+const hasIssues = computed(() => issueCategories.value.length > 0)
+
+// "issues" = employees needing action; "clear" = attendance recorded, nothing flagged
+const activeDayTab = ref("issues")
+
+const issueCount = computed(() => selectedDay.value?.issue_count || 0)
+
+const dayTabs = computed(() => [
+	{ key: "issues", label: __("Needs Attention"), count: issueCount.value },
+	{ key: "clear", label: __("No Issues"), count: noIssueItems.value.length },
+])
+
+const visibleCategories = computed(() => {
+	if (activeDayTab.value === "issues" && hasIssues.value) return issueCategories.value
+	return noIssueItems.value.length
+		? [{ key: "no_issues", label: __("No Issues"), items: noIssueItems.value }]
+		: []
+})
+
+function rowDetail(item) {
+	const parts = []
+	if (item.in_time || item.out_time) {
+		parts.push(
+			`${__("In")}: ${item.in_time ? dayjs(item.in_time).format("h:mm A") : "-"} · ${__("Out")}: ${
+				item.out_time ? dayjs(item.out_time).format("h:mm A") : "-"
+			}`
+		)
+	}
+	if (item.hours_difference) {
+		parts.push(__("Short by {0}", [formatHoursDuration(item.hours_difference)]))
+	}
+	if (!parts.length && item.status) parts.push(__(item.status))
+	return parts.join(" · ")
+}
+
+// Check-in logs, fetched lazily per employee for the selected date
+const openLogs = reactive({})
+const logResources = reactive({})
+
+function showLogs(employee) {
+	openLogs[employee] = true
+	if (!logResources[employee]) {
+		logResources[employee] = createResource({
+			url: "craft_hr.api.get_team_employee_checkins",
+			params: { employee, date: selectedDate.value.format("YYYY-MM-DD") },
+			auto: true,
+		})
+	}
+}
+
+function hideLogs(employee) {
+	openLogs[employee] = false
+}
+
+function openAttendance(item) {
+	if (!item.attendance) return
+	window.open(`/app/attendance/${encodeURIComponent(item.attendance)}`, "_blank")
+}
+
 function handleDateClick(date) {
-	if (!isActionable(date)) return
 	selectedDate.value = date
+	// reset per-date state
+	Object.keys(openLogs).forEach((key) => delete openLogs[key])
+	Object.keys(logResources).forEach((key) => delete logResources[key])
+	activeDayTab.value = "issues"
 	showDayDialog.value = true
 }
 

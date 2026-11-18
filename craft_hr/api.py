@@ -57,6 +57,35 @@ def _get_direct_report_employees(user: str) -> list[str]:
     return frappe.get_all("Employee", filters={"reports_to": employee}, pluck="name")
 
 
+def _get_creator_department_employees(user: str) -> list[str]:
+    """
+    Active employees of every Department where ``user`` is listed in the
+    Leave Application Creators / Attendance Request Creators table (the
+    "Creators" section added by sj_hr). Empty if sj_hr's tables aren't
+    installed or the user isn't a creator anywhere.
+    """
+    departments: set[str] = set()
+    for child in ("Department Leave Creator", "Department Attendance Request Creator"):
+        if not frappe.db.table_exists(child):
+            continue
+        departments.update(
+            frappe.get_all(child, filters={"user": user, "parenttype": "Department"}, pluck="parent")
+        )
+    if not departments:
+        return []
+    return frappe.get_all(
+        "Employee", filters={"department": ["in", list(departments)], "status": "Active"}, pluck="name"
+    )
+
+
+def _get_team_calendar_employees(user: str) -> list[str]:
+    """Team Calendar scope: direct reports plus the employees of any
+    department the user is a creator for (deduplicated, order preserved)."""
+    return list(
+        dict.fromkeys(_get_direct_report_employees(user) + _get_creator_department_employees(user))
+    )
+
+
 def _get_pending_reports_to_documents(doctype: str, fields: list[str], limit: int | None = None) -> list[dict]:
     """
     Documents of doctype currently awaiting approval from the logged-in
@@ -373,8 +402,13 @@ def get_checkins_for_period(from_date: str, to_date: str) -> list[dict]:
 @frappe.whitelist()
 def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
     """
-    Per-day attendance issue breakdown (absent/late/short hours/missed punch)
-    for the logged-in manager's direct reports, for the Team Calendar tab on
+    Per-day attendance breakdown: issues (absent/late/short hours/missed punch)
+    plus a "no_issues" list of everyone with attendance recorded and nothing
+    flagged. Originally issues only; the old note below about days with no
+    entry still holds for days with no attendance at all.
+    for the logged-in manager's direct reports and the employees of any
+    department they are a Leave Application / Attendance Request Creator for
+    (see _get_team_calendar_employees), for the Team Calendar tab on
     the ESS Attendance dashboard. Unlike get_attendance_calendar_details
     (single employee, full day status incl. holidays), this only reports
     days/employees with an actual issue - a day with no entry here means
@@ -383,7 +417,7 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
     okay" query. Manager-only, same reports_to gate as Team Requests /
     Overtime Slip (see can_approve_team_requests(), _get_direct_report_employees()).
     """
-    reports = _get_direct_report_employees(frappe.session.user)
+    reports = _get_team_calendar_employees(frappe.session.user)
     if not reports:
         return {"total_employees": 0, "days": {}}
 
@@ -399,7 +433,7 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
     has_missed_punch = attendance_meta.has_field("custom_missed_punch")
     has_hours_difference = attendance_meta.has_field("custom_hours_difference")
 
-    fields = ["employee", "attendance_date", "status", "late_entry", "in_time", "out_time"]
+    fields = ["name", "employee", "attendance_date", "status", "late_entry", "in_time", "out_time"]
     if has_short_hours:
         fields.append("custom_short_hours")
     if has_missed_punch:
@@ -423,11 +457,20 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
         date_str = str(row.attendance_date)
         day = days.setdefault(
             date_str,
-            {"absent": [], "late": [], "short_hours": [], "missed_punch": [], "issue_employees": set()},
+            {
+                "absent": [],
+                "late": [],
+                "short_hours": [],
+                "missed_punch": [],
+                "no_issues": [],
+                "issue_employees": set(),
+            },
         )
         entry = {
             "employee": row.employee,
             "employee_name": employee_names.get(row.employee, row.employee),
+            "status": row.status,
+            "attendance": row.name,
             "in_time": row.get("in_time"),
             "out_time": row.get("out_time"),
             "hours_difference": row.get("custom_hours_difference") or 0,
@@ -452,10 +495,31 @@ def get_team_attendance_calendar_details(from_date: str, to_date: str) -> dict:
             day["short_hours"].append(entry)
             day["issue_employees"].add(row.employee)
 
+        # Attendance recorded and nothing flagged: goes in the "No Issues" list.
+        if row.employee not in day["issue_employees"]:
+            day["no_issues"].append(entry)
+
     for day in days.values():
         day["issue_count"] = len(day.pop("issue_employees"))
 
     return {"total_employees": len(reports), "days": days}
+
+
+@frappe.whitelist()
+def get_team_employee_checkins(employee: str, date: str) -> list[dict]:
+    """Employee Checkin logs (IN/OUT times) of one employee on one date, for
+    the LOGS button in the Team Calendar day popup. Limited to the same
+    employees the Team Calendar itself shows the user."""
+    if employee not in _get_team_calendar_employees(frappe.session.user):
+        frappe.throw(frappe._("Not permitted to view this employee's check-in logs"), frappe.PermissionError)
+
+    return frappe.get_all(
+        "Employee Checkin",
+        filters={"employee": employee, "time": ["between", [f"{date} 00:00:00", f"{date} 23:59:59"]]},
+        fields=["name", "log_type", "time", "device_id"],
+        order_by="time asc",
+        ignore_permissions=True,
+    )
 
 
 @frappe.whitelist()
@@ -586,6 +650,13 @@ def get_todays_estimated_checkout() -> dict | None:
         "first_checkin_time": first_checkin_time,
         "estimated_checkout": estimated_checkout,
     }
+
+
+@frappe.whitelist()
+def can_view_team_calendar() -> bool:
+    """Whether the Team Calendar tab should show: anyone who can approve team
+    requests, plus department Creators (who see their departments' staff)."""
+    return bool(can_approve_team_requests() or _get_creator_department_employees(frappe.session.user))
 
 
 @frappe.whitelist()
