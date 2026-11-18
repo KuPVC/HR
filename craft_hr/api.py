@@ -57,15 +57,21 @@ def _get_direct_report_employees(user: str) -> list[str]:
     return frappe.get_all("Employee", filters={"reports_to": employee}, pluck="name")
 
 
-def _get_creator_department_employees(user: str) -> list[str]:
+LEAVE_AND_ATTENDANCE_CREATOR_TABLES = ("Department Leave Creator", "Department Attendance Request Creator")
+OVERTIME_CREATOR_TABLES = ("Department Overtime Slip Creator",)
+
+
+def _get_creator_department_employees(
+    user: str, creator_tables: tuple[str, ...] = LEAVE_AND_ATTENDANCE_CREATOR_TABLES
+) -> list[str]:
     """
-    Active employees of every Department where ``user`` is listed in the
-    Leave Application Creators / Attendance Request Creators table (the
-    "Creators" section added by sj_hr). Empty if sj_hr's tables aren't
-    installed or the user isn't a creator anywhere.
+    Active employees of every Department where ``user`` is listed in one of
+    the given Creators tables (the "Creators" section added by sj_hr).
+    Empty if sj_hr's tables aren't installed or the user isn't a creator
+    anywhere.
     """
     departments: set[str] = set()
-    for child in ("Department Leave Creator", "Department Attendance Request Creator"):
+    for child in creator_tables:
         if not frappe.db.table_exists(child):
             continue
         departments.update(
@@ -727,6 +733,158 @@ def get_team_overtime_slips(limit: int | None = None) -> list[dict]:
         limit=limit,
         ignore_permissions=True,
     )
+
+
+def _get_payroll_period(offset: int = 0) -> tuple:
+    """Salary period (start, end) containing today, shifted by ``offset``
+    periods. Uses Attendance Notification Settings' Payroll Start/End Day
+    (25 -> 24 by default), the same convention as the notification digests."""
+    from datetime import date
+
+    from frappe.utils import add_months, get_last_day
+
+    start_day, end_day = 25, 24
+    if frappe.db.exists("DocType", "Attendance Notification Settings"):
+        start_day = cint(frappe.db.get_single_value("Attendance Notification Settings", "payroll_start_day")) or 25
+        end_day = cint(frappe.db.get_single_value("Attendance Notification Settings", "payroll_end_day")) or 24
+
+    today = getdate(nowdate())
+    month_anchor = date(today.year, today.month, 1)
+    if today.day < start_day:
+        month_anchor = add_months(month_anchor, -1)
+    month_anchor = add_months(month_anchor, cint(offset))
+
+    start = date(month_anchor.year, month_anchor.month, min(start_day, get_last_day(month_anchor).day))
+    end_month = add_months(month_anchor, 1) if end_day < start_day else month_anchor
+    end = date(end_month.year, end_month.month, min(end_day, get_last_day(end_month).day))
+    return start, end
+
+
+def _get_overtime_team_employees(user: str) -> list[str]:
+    """Employees whose Overtime Slips the user sees as 'team': direct reports
+    plus the employees of departments where the user is an Overtime Slip
+    Creator (never the user's own employee)."""
+    own = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+    team = _get_direct_report_employees(user) + _get_creator_department_employees(user, OVERTIME_CREATOR_TABLES)
+    return [emp for emp in dict.fromkeys(team) if emp != own]
+
+
+@frappe.whitelist()
+def get_overtime_overview(offset: int = 0) -> dict:
+    """
+    Overtime Slips for one salary period, for the Overtime section of the ESS
+    Attendance dashboard: the user's own slips, and (if they have a team) the
+    slips of their team grouped by employee, each with its in-period overtime
+    rows, plus a per-day roll-up (who has overtime on which day).
+
+    "Team" = direct reports plus employees of departments the user is an
+    Overtime Slip Creator for. Scoped here rather than by the caller's read
+    permissions, like get_team_overtime_slips (Overtime Slip has no
+    reports_to concept of its own).
+    """
+    user = frappe.session.user
+    start, end = _get_payroll_period(offset)
+    own = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+    team_ids = _get_overtime_team_employees(user)
+
+    result = {
+        "period_start": str(start),
+        "period_end": str(end),
+        "offset": cint(offset),
+        "employee": own,
+        "has_team": bool(team_ids),
+        "self": {"slips": [], "total_hours": 0, "daily": {}},
+        "team": {"employees": [], "total_hours": 0, "daily": {}},
+    }
+
+    scope = ([own] if own else []) + team_ids
+    if not scope:
+        return result
+
+    slips = frappe.get_all(
+        "Overtime Slip",
+        filters={
+            "employee": ["in", scope],
+            "docstatus": ["<", 2],
+            "start_date": ["<=", end],
+            "end_date": [">=", start],
+        },
+        fields=[
+            "name",
+            "employee",
+            "employee_name",
+            "start_date",
+            "end_date",
+            "total_overtime_duration",
+            "docstatus",
+            "creation",
+        ],
+        order_by="start_date asc, creation asc",
+        ignore_permissions=True,
+    )
+    details_by_slip: dict[str, list[dict]] = {}
+    if slips:
+        for row in frappe.get_all(
+            "Overtime Details",
+            filters={
+                "parent": ["in", [slip.name for slip in slips]],
+                "parenttype": "Overtime Slip",
+                "date": ["between", [start, end]],
+            },
+            fields=["parent", "date", "overtime_type", "overtime_duration"],
+            order_by="date asc",
+            ignore_permissions=True,
+        ):
+            details_by_slip.setdefault(row.parent, []).append(
+                {
+                    "date": str(row.date),
+                    "overtime_type": row.overtime_type,
+                    "hours": flt(row.overtime_duration, 2),
+                }
+            )
+
+    team_groups: dict[str, dict] = {}
+    for slip in slips:
+        details = details_by_slip.get(slip.name, [])
+        hours = flt(sum(d["hours"] for d in details), 2)
+        item = {
+            "name": slip.name,
+            "employee": slip.employee,
+            "employee_name": slip.employee_name,
+            "start_date": str(slip.start_date),
+            "end_date": str(slip.end_date),
+            "docstatus": slip.docstatus,
+            "total_hours": flt(slip.total_overtime_duration, 2),
+            "period_hours": hours,
+            "details": details,
+        }
+        bucket = result["self"] if slip.employee == own else result["team"]
+        if slip.employee == own:
+            bucket["slips"].append(item)
+        else:
+            group = team_groups.setdefault(
+                slip.employee,
+                {"employee": slip.employee, "employee_name": slip.employee_name, "total_hours": 0, "slips": []},
+            )
+            group["slips"].append(item)
+            group["total_hours"] = flt(group["total_hours"] + hours, 2)
+        bucket["total_hours"] = flt(bucket["total_hours"] + hours, 2)
+
+        for detail in details:
+            day = bucket["daily"].setdefault(detail["date"], {})
+            entry = day.setdefault(
+                slip.employee, {"employee": slip.employee, "employee_name": slip.employee_name, "hours": 0}
+            )
+            entry["hours"] = flt(entry["hours"] + detail["hours"], 2)
+
+    # daily: {date: [{employee, employee_name, hours}, ...]}
+    for bucket in (result["self"], result["team"]):
+        bucket["daily"] = {
+            day: sorted(entries.values(), key=lambda e: e["employee_name"] or e["employee"])
+            for day, entries in sorted(bucket["daily"].items())
+        }
+    result["team"]["employees"] = sorted(team_groups.values(), key=lambda g: g["employee_name"] or g["employee"])
+    return result
 
 
 @frappe.whitelist()

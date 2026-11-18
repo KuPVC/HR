@@ -2,11 +2,7 @@
 	<AppShell :pageTitle="__('Attendance')">
 		<template #body>
 			<div class="flex flex-col gap-7 w-full max-w-[1600px] mx-auto">
-				<TabButtons
-					v-if="canViewTeamCalendar.data"
-					:buttons="['My Attendance', 'Team Calendar']"
-					v-model="activeTab"
-				/>
+				<TabButtons :buttons="tabButtons" v-model="activeTab" />
 
 				<template v-if="activeTab == 'My Attendance'">
 					<AttendanceCalendar />
@@ -48,6 +44,8 @@
 				</template>
 
 				<TeamAttendanceCalendar v-else-if="activeTab == 'Team Calendar'" />
+
+				<OvertimeSection v-else-if="activeTab == 'Overtime'" />
 			</div>
 		</template>
 	</AppShell>
@@ -63,6 +61,7 @@ import ShiftAssignmentItem from "@/components/ShiftAssignmentItem.vue"
 import RequestList from "@/components/RequestList.vue"
 import AttendanceCalendar from "@/components/AttendanceCalendar.vue"
 import TeamAttendanceCalendar from "@/components/TeamAttendanceCalendar.vue"
+import OvertimeSection from "@/components/OvertimeSection.vue"
 import TabButtons from "@/components/TabButtons.vue"
 
 import {
@@ -84,6 +83,14 @@ const canViewTeamCalendar = createResource({
 	cache: "craft_hr:can_view_team_calendar",
 	auto: true,
 })
+
+// Team Calendar only for approvers / creators; Overtime for everyone (their
+// own slips, plus the team's when they have one).
+const tabButtons = computed(() => [
+	"My Attendance",
+	...(canViewTeamCalendar.data ? ["Team Calendar"] : []),
+	"Overtime",
+])
 
 const shifts = createResource({
 	url: "hrms.api.get_shifts",
