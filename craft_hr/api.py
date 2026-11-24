@@ -814,6 +814,57 @@ def _get_overtime_team_employees(user: str) -> list[str]:
     return [emp for emp in dict.fromkeys(team) if emp != own]
 
 
+def _employees_with_overtime_shift(employees: list[str]) -> list[str]:
+    """Those of ``employees`` assigned a Shift Type that has "Allow Overtime"
+    checked: either as their default shift or through a current/upcoming
+    (submitted, active) Shift Assignment."""
+    if not employees:
+        return []
+    shift_types = frappe.get_all("Shift Type", filters={"allow_overtime": 1}, pluck="name")
+    if not shift_types:
+        return []
+
+    matched = set(
+        frappe.get_all(
+            "Employee",
+            filters={"name": ["in", employees], "default_shift": ["in", shift_types]},
+            pluck="name",
+        )
+    )
+    remaining = [emp for emp in employees if emp not in matched]
+    if remaining:
+        matched.update(
+            frappe.get_all(
+                "Shift Assignment",
+                filters={
+                    "employee": ["in", remaining],
+                    "shift_type": ["in", shift_types],
+                    "docstatus": 1,
+                    "status": "Active",
+                },
+                or_filters=[["end_date", "is", "not set"], ["end_date", ">=", nowdate()]],
+                pluck="employee",
+            )
+        )
+    return [emp for emp in employees if emp in matched]
+
+
+@frappe.whitelist()
+def can_view_overtime() -> bool:
+    """Whether the Overtime tab should show on the ESS Attendance page:
+    the user's own employee is assigned a shift with Allow Overtime, or the
+    user has a team (Team Calendar access / Overtime Slip Creator) and at
+    least one team member is."""
+    user = frappe.session.user
+    own = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+    if own and _employees_with_overtime_shift([own]):
+        return True
+
+    team = list(dict.fromkeys(_get_team_calendar_employees(user) + _get_overtime_team_employees(user)))
+    team = [emp for emp in team if emp != own]
+    return bool(_employees_with_overtime_shift(team))
+
+
 @frappe.whitelist()
 def get_overtime_overview(offset: int = 0) -> dict:
     """

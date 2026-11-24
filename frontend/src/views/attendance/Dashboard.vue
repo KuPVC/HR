@@ -84,12 +84,19 @@ const canViewTeamCalendar = createResource({
 	auto: true,
 })
 
-// Team Calendar only for approvers / creators; Overtime for everyone (their
-// own slips, plus the team's when they have one).
+// Overtime only when the user is assigned a shift with "Allow Overtime", or has a
+// team (Team Calendar / Overtime Slip Creator) where someone is.
+const canViewOvertime = createResource({
+	url: "craft_hr.api.can_view_overtime",
+	cache: "craft_hr:can_view_overtime",
+	auto: true,
+})
+
+// Team Calendar only for approvers / creators.
 const tabButtons = computed(() => [
 	"My Attendance",
 	...(canViewTeamCalendar.data ? ["Team Calendar"] : []),
-	"Overtime",
+	...(canViewOvertime.data ? ["Overtime"] : []),
 ])
 
 const shifts = createResource({
